@@ -24,21 +24,28 @@ interface StartRenderLoopInput {
   settings: ProjectSettings
 }
 
-function clipRoundedRect(ctx: CanvasRenderingContext2D, w: number, h: number, radius: number) {
+function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) {
   const r = Math.max(0, Math.min(radius, Math.min(w, h) / 2))
-  if (r === 0) return
-
   ctx.beginPath()
-  ctx.moveTo(r, 0)
-  ctx.lineTo(w - r, 0)
-  ctx.quadraticCurveTo(w, 0, w, r)
-  ctx.lineTo(w, h - r)
-  ctx.quadraticCurveTo(w, h, w - r, h)
-  ctx.lineTo(r, h)
-  ctx.quadraticCurveTo(0, h, 0, h - r)
-  ctx.lineTo(0, r)
-  ctx.quadraticCurveTo(0, 0, r, 0)
+  if (r > 0) {
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + w - r, y)
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+    ctx.lineTo(x + w, y + h - r)
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+    ctx.lineTo(x + r, y + h)
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+    ctx.lineTo(x, y + r)
+    ctx.quadraticCurveTo(x, y, x + r, y)
+  } else {
+    ctx.rect(x, y, w, h)
+  }
   ctx.closePath()
+}
+
+function clipRoundedRect(ctx: CanvasRenderingContext2D, w: number, h: number, radius: number) {
+  if (radius === 0) return
+  roundedRectPath(ctx, 0, 0, w, h, radius)
   ctx.clip()
 }
 
@@ -59,8 +66,11 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
 
     const vw = canvas.width
     const vh = canvas.height
-    const cx = cursorNormRef.current.x * vw
-    const cy = cursorNormRef.current.y * vh
+    const pad = settings.padding
+    const videoW = vw - 2 * pad
+    const videoH = vh - 2 * pad
+    const cx = pad + cursorNormRef.current.x * videoW
+    const cy = pad + cursorNormRef.current.y * videoH
 
     const dx = (cursorNormRef.current.x - prevCursor.x) * vw
     const dy = (cursorNormRef.current.y - prevCursor.y) * vh
@@ -75,8 +85,8 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       currentZoom: camera.zoom,
     })
 
-    const tx = (cursorNormRef.current.x - 0.5) * vw
-    const ty = (cursorNormRef.current.y - 0.5) * vh
+    const tx = (cursorNormRef.current.x - 0.5) * videoW
+    const ty = (cursorNormRef.current.y - 0.5) * videoH
     camera.update(tx, ty, targetZoom, dt)
 
     ctx.fillStyle = settings.background
@@ -84,14 +94,28 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
 
     const video = captureVideoRef.current
     if (video && video.readyState >= 2) {
-      ctx.save()
-      ctx.translate(vw / 2, vh / 2)
-      ctx.scale(camera.zoom, camera.zoom)
-      ctx.translate(-vw / 2 - camera.x, -vh / 2 - camera.y)
-      if (settings.cornerRadius > 0) {
-        clipRoundedRect(ctx, vw, vh, settings.cornerRadius)
+      // Draw drop shadow behind the video frame
+      if (settings.shadowEnabled && settings.shadowBlur > 0 && pad > 0) {
+        ctx.save()
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+        ctx.shadowBlur = settings.shadowBlur
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 2
+        ctx.fillStyle = '#000'
+        roundedRectPath(ctx, pad, pad, videoW, videoH, settings.cornerRadius)
+        ctx.fill()
+        ctx.restore()
       }
-      ctx.drawImage(video, 0, 0, vw, vh)
+
+      // Draw video with camera transforms, inset by padding
+      ctx.save()
+      ctx.translate(pad + videoW / 2, pad + videoH / 2)
+      ctx.scale(camera.zoom, camera.zoom)
+      ctx.translate(-videoW / 2 - camera.x, -videoH / 2 - camera.y)
+      if (settings.cornerRadius > 0) {
+        clipRoundedRect(ctx, videoW, videoH, settings.cornerRadius)
+      }
+      ctx.drawImage(video, 0, 0, videoW, videoH)
       ctx.restore()
     }
 
