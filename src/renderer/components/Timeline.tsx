@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { TimelineSegment } from '../../shared/types'
 
 interface TimelineProps {
@@ -10,6 +11,7 @@ interface TimelineProps {
   onToggleSegmentSelected: (id: string) => void
   onSplit: () => void
   onDeleteSegment: () => void
+  onUpdateSegment: (id: string, updates: Partial<TimelineSegment>) => void
 }
 
 function fmtMs(ms: number) {
@@ -29,7 +31,46 @@ export function Timeline(props: TimelineProps) {
     onToggleSegmentSelected,
     onSplit,
     onDeleteSegment,
+    onUpdateSegment,
   } = props
+
+  const [trimDrag, setTrimDrag] = useState<{
+    segmentId: string
+    side: 'left' | 'right'
+  } | null>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!trimDrag || !trackRef.current) return
+    const track = trackRef.current
+    const totalDur = Math.max(recordDuration, 1)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = track.getBoundingClientRect()
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+      const timeMs = Math.round(frac * totalDur)
+
+      const seg = segments.find((s) => s.id === trimDrag.segmentId)
+      if (!seg) return
+
+      if (trimDrag.side === 'left') {
+        const newStart = Math.max(0, Math.min(timeMs, seg.endTime - 100))
+        onUpdateSegment(trimDrag.segmentId, { startTime: newStart })
+      } else {
+        const newEnd = Math.min(totalDur, Math.max(timeMs, seg.startTime + 100))
+        onUpdateSegment(trimDrag.segmentId, { endTime: newEnd })
+      }
+    }
+
+    const handleMouseUp = () => setTrimDrag(null)
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [trimDrag, segments, recordDuration, onUpdateSegment])
 
   if (!hasRecorded) return null
 
@@ -66,6 +107,7 @@ export function Timeline(props: TimelineProps) {
         </div>
 
         <div
+          ref={trackRef}
           className="relative flex-1 bg-zinc-800/80 rounded-lg overflow-hidden border border-zinc-700/50 cursor-pointer"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect()
@@ -95,8 +137,20 @@ export function Timeline(props: TimelineProps) {
                 <span className="text-[10px] text-red-300/60 pl-1.5 truncate block leading-tight pt-1">
                   {fmtMs(segment.endTime - segment.startTime)}
                 </span>
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-l-md hover:bg-red-400/80" />
-                <div className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-r-md hover:bg-red-400/80" />
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-l-md hover:bg-red-400/80"
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                    setTrimDrag({ segmentId: segment.id, side: 'left' })
+                  }}
+                />
+                <div
+                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-r-md hover:bg-red-400/80"
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                    setTrimDrag({ segmentId: segment.id, side: 'right' })
+                  }}
+                />
               </div>
             )
           })}

@@ -34,6 +34,7 @@ function App() {
   const [playheadMs, setPlayheadMs] = useState(0)
   const [exportProgress, setExportProgress] = useState<number | null>(null)
   const [exportDone, setExportDone] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   const { playbackUrl, clearPlayback, setPlaybackFromChunks } = usePlayback()
   const {
@@ -188,6 +189,13 @@ function App() {
     preventDefault: true,
   })
 
+  const handleUpdateSegment = useCallback(
+    (id: string, updates: Partial<import('../shared/types').TimelineSegment>) => {
+      setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
+    },
+    [],
+  )
+
   const handleExport = useCallback(async () => {
     if (exportProgress !== null) return
 
@@ -224,10 +232,15 @@ function App() {
             playbackUrl={playbackUrl}
             captureVideoRef={captureVideoRef}
             canvasRef={canvasRef}
+            segments={segments}
+            playheadMs={playheadMs}
+            onPlayheadChange={setPlayheadMs}
+            isPlaying={isPlaying}
+            onPlayingChange={setIsPlaying}
           />
 
           <div className="flex items-center justify-center gap-3">
-            {status === 'idle' ? (
+            {status === 'idle' && !hasRecorded ? (
               <button
                 data-testid="record-btn"
                 className="flex items-center gap-2 rounded-full bg-red-500 px-7 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/25 active:scale-95"
@@ -236,6 +249,39 @@ function App() {
                 <div className="w-2.5 h-2.5 rounded-full bg-white" />
                 Record
               </button>
+            ) : status === 'idle' && hasRecorded ? (
+              <>
+                <button
+                  data-testid="play-btn"
+                  className="flex items-center gap-2 rounded-full bg-blue-600 px-7 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-600/25 active:scale-95"
+                  onClick={() => setIsPlaying((p) => !p)}
+                >
+                  {isPlaying ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
+                        <rect x="1" y="1" width="3.5" height="10" rx="0.5" />
+                        <rect x="7.5" y="1" width="3.5" height="10" rx="0.5" />
+                      </svg>
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
+                        <polygon points="2,0 12,6 2,12" />
+                      </svg>
+                      Play
+                    </>
+                  )}
+                </button>
+                <button
+                  data-testid="record-btn"
+                  className="flex items-center gap-2 rounded-full bg-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-300 transition-all duration-150 hover:bg-zinc-600 active:scale-95"
+                  onClick={handleRecord}
+                >
+                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  Re-record
+                </button>
+              </>
             ) : status === 'recording' ? (
               <button
                 data-testid="stop-btn"
@@ -295,6 +341,7 @@ function App() {
         }
         onSplit={handleSplit}
         onDeleteSegment={handleDeleteSegment}
+        onUpdateSegment={handleUpdateSegment}
       />
 
       <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-950 px-4 py-2.5">

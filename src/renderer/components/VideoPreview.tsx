@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
-import type { ProjectSettings, RecordingStatus } from '../../shared/types'
+import type { ProjectSettings, RecordingStatus, TimelineSegment } from '../../shared/types'
+import { EditPlayback } from './EditPlayback'
 
 interface VideoPreviewProps {
   status: RecordingStatus
@@ -10,6 +11,11 @@ interface VideoPreviewProps {
   playbackUrl: string | null
   captureVideoRef: RefObject<HTMLVideoElement>
   canvasRef: RefObject<HTMLCanvasElement>
+  segments: TimelineSegment[]
+  playheadMs: number
+  onPlayheadChange: (ms: number) => void
+  isPlaying: boolean
+  onPlayingChange: (playing: boolean) => void
 }
 
 function fmtMs(ms: number) {
@@ -28,6 +34,11 @@ export function VideoPreview(props: VideoPreviewProps) {
     playbackUrl,
     captureVideoRef,
     canvasRef,
+    segments,
+    playheadMs,
+    onPlayheadChange,
+    isPlaying,
+    onPlayingChange,
   } = props
 
   return (
@@ -84,11 +95,13 @@ export function VideoPreview(props: VideoPreviewProps) {
       ) : hasRecorded ? (
         <div className="mb-8 w-full max-w-2xl">
           {playbackUrl ? (
-            <video
-              src={playbackUrl}
-              controls
-              playsInline
-              className="w-full rounded-2xl border border-zinc-800 shadow-2xl bg-black"
+            <EditPlayback
+              playbackUrl={playbackUrl}
+              segments={segments}
+              playheadMs={playheadMs}
+              onPlayheadChange={onPlayheadChange}
+              isPlaying={isPlaying}
+              onPlayingChange={onPlayingChange}
             />
           ) : (
             <div
