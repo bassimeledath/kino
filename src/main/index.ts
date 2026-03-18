@@ -28,6 +28,7 @@ function createMainWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      backgroundThrottling: false, // CRITICAL: keep canvas rendering when app loses focus
     },
   })
 
