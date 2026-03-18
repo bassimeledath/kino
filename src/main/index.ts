@@ -9,8 +9,26 @@ import type { CursorFrame } from '../shared/types'
 // Allow CDP WebSocket connections from any origin (required for benchmark tooling)
 app.commandLine.appendSwitch('remote-allow-origins', '*')
 
+// Swift helper that polls CGEventSourceButtonState at ~120Hz and emits "down"/"up" on state change.
+// Requires no special permissions — CGEventSourceButtonState reads combined session state.
+const CLICK_MONITOR_SWIFT = `import CoreGraphics
+import Foundation
+setbuf(stdout, nil)
+var lastState = false
+while true {
+    let down = CGEventSource.buttonState(.combinedSessionState, button: .left)
+    if down != lastState {
+        lastState = down
+        print(down ? "down" : "up")
+    }
+    Thread.sleep(forTimeInterval: 0.008)
+}
+`
+
 let mainWindow: BrowserWindow | null = null
 let cursorInterval: ReturnType<typeof setInterval> | null = null
+let clickProcess: ReturnType<typeof spawn> | null = null
+let isMouseDown = false
 let recordingStartTime = 0
 const cursorLog: CursorFrame[] = []
 
@@ -77,6 +95,21 @@ app.whenReady().then(() => {
   ipcMain.on(Channels.RECORDING_START, (_event, _config) => {
     cursorLog.length = 0
     recordingStartTime = Date.now()
+    isMouseDown = false
+
+    // Start macOS click monitor (Swift helper polling CGEventSourceButtonState)
+    if (process.platform === 'darwin') {
+      const tmpSwift = join(tmpdir(), 'kino-click-monitor.swift')
+      writeFileSync(tmpSwift, CLICK_MONITOR_SWIFT)
+      clickProcess = spawn('/usr/bin/swift', [tmpSwift], { stdio: ['ignore', 'pipe', 'ignore'] })
+      clickProcess.stdout!.on('data', (data: Buffer) => {
+        for (const line of data.toString().split('\n')) {
+          if (line === 'down') isMouseDown = true
+          else if (line === 'up') isMouseDown = false
+        }
+      })
+      clickProcess.on('error', () => { clickProcess = null })
+    }
 
     if (cursorInterval) clearInterval(cursorInterval)
     cursorInterval = setInterval(() => {
@@ -85,7 +118,7 @@ app.whenReady().then(() => {
         t: Date.now() - recordingStartTime,
         x: pos.x,
         y: pos.y,
-        click: false,
+        click: isMouseDown,
       }
       cursorLog.push(frame)
       mainWindow?.webContents.send(Channels.CURSOR_DATA, frame)
@@ -94,12 +127,17 @@ app.whenReady().then(() => {
     mainWindow?.webContents.send(Channels.RECORDING_STATUS, 'recording')
   })
 
-  // IPC: Recording stop — stop cursor tracking
+  // IPC: Recording stop — stop cursor tracking and click monitor
   ipcMain.on(Channels.RECORDING_STOP, () => {
     if (cursorInterval) {
       clearInterval(cursorInterval)
       cursorInterval = null
     }
+    if (clickProcess) {
+      clickProcess.kill()
+      clickProcess = null
+    }
+    isMouseDown = false
     mainWindow?.webContents.send(Channels.RECORDING_STATUS, 'idle')
   })
 
@@ -214,5 +252,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (cursorInterval) clearInterval(cursorInterval)
+  if (clickProcess) clickProcess.kill()
   app.quit()
 })
