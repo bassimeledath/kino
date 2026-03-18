@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, desktopCapturer, dialog } from 'electron'
 import { join } from 'path'
 import { spawn } from 'child_process'
-import { writeFileSync, mkdtempSync } from 'fs'
+import { writeFileSync, mkdtempSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { Channels } from '../shared/channels'
 import type { CursorFrame } from '../shared/types'
@@ -138,6 +138,12 @@ app.whenReady().then(() => {
       clickProcess = null
     }
     isMouseDown = false
+
+    // Save cursor log to benchmarks/cursor-log.json
+    const benchDir = join(__dirname, '../../benchmarks')
+    mkdirSync(benchDir, { recursive: true })
+    writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog))
+
     mainWindow?.webContents.send(Channels.RECORDING_STATUS, 'idle')
   })
 
