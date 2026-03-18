@@ -40,15 +40,55 @@ export function Timeline(props: TimelineProps) {
   } | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
 
+  const totalDur = Math.max(recordDuration, 1)
+
+  // Collapsed visual layout: position non-deleted segments contiguously
+  const visibleSegments = segments
+    .filter((s) => !s.deleted)
+    .sort((a, b) => a.startTime - b.startTime)
+
+  const visualDuration = Math.max(
+    visibleSegments.reduce((sum, s) => sum + (s.endTime - s.startTime), 0),
+    1,
+  )
+
+  // Map absolute time → visual fraction (0..1) in collapsed layout
+  function absToVisualFrac(absMs: number): number {
+    let visualMs = 0
+    for (const seg of visibleSegments) {
+      if (absMs <= seg.startTime) break
+      if (absMs >= seg.endTime) {
+        visualMs += seg.endTime - seg.startTime
+      } else {
+        visualMs += absMs - seg.startTime
+        break
+      }
+    }
+    return visualMs / visualDuration
+  }
+
+  // Map visual fraction (0..1) → absolute time
+  function visualFracToAbs(frac: number): number {
+    let targetMs = frac * visualDuration
+    for (const seg of visibleSegments) {
+      const segDur = seg.endTime - seg.startTime
+      if (targetMs <= segDur) {
+        return seg.startTime + targetMs
+      }
+      targetMs -= segDur
+    }
+    const last = visibleSegments[visibleSegments.length - 1]
+    return last ? last.endTime : 0
+  }
+
   useEffect(() => {
     if (!trimDrag || !trackRef.current) return
     const track = trackRef.current
-    const totalDur = Math.max(recordDuration, 1)
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = track.getBoundingClientRect()
       const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-      const timeMs = Math.round(frac * totalDur)
+      const timeMs = Math.round(visualFracToAbs(frac))
 
       const seg = segments.find((s) => s.id === trimDrag.segmentId)
       if (!seg) return
@@ -73,8 +113,6 @@ export function Timeline(props: TimelineProps) {
   }, [trimDrag, segments, recordDuration, onUpdateSegment])
 
   if (!hasRecorded) return null
-
-  const totalDur = Math.max(recordDuration, 1)
 
   return (
     <div
@@ -112,63 +150,68 @@ export function Timeline(props: TimelineProps) {
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect()
             const frac = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
-            onSetPlayheadMs(Math.round(frac * totalDur))
+            onSetPlayheadMs(Math.round(visualFracToAbs(frac)))
           }}
         >
-          {segments.filter((segment) => !segment.deleted).map((segment) => {
-            const left = (segment.startTime / totalDur) * 100
-            const width = Math.max(((segment.endTime - segment.startTime) / totalDur) * 100, 0.5)
-            const isSelected = segment.id === selectedSegmentId
+          {(() => {
+            let visualOffset = 0
+            return visibleSegments.map((segment) => {
+              const segDur = segment.endTime - segment.startTime
+              const left = (visualOffset / visualDuration) * 100
+              const width = Math.max((segDur / visualDuration) * 100, 0.5)
+              visualOffset += segDur
+              const isSelected = segment.id === selectedSegmentId
 
-            return (
-              <div
-                key={segment.id}
-                className={`absolute inset-y-1 rounded-md transition-colors ${
-                  isSelected
-                    ? 'bg-red-500/50 border border-red-500/70'
-                    : 'bg-red-500/20 border border-red-500/30 hover:bg-red-500/35'
-                }`}
-                style={{ left: `${left}%`, width: `${width}%` }}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onToggleSegmentSelected(segment.id)
-                }}
-              >
-                <span className="text-[10px] text-red-300/60 pl-1.5 truncate block leading-tight pt-1">
-                  {fmtMs(segment.endTime - segment.startTime)}
-                </span>
+              return (
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-l-md hover:bg-red-400/80"
-                  onMouseDown={(e) => {
-                    e.stopPropagation()
-                    setTrimDrag({ segmentId: segment.id, side: 'left' })
+                  key={segment.id}
+                  className={`absolute inset-y-1 rounded-md transition-colors ${
+                    isSelected
+                      ? 'bg-red-500/50 border border-red-500/70'
+                      : 'bg-red-500/20 border border-red-500/30 hover:bg-red-500/35'
+                  }`}
+                  style={{ left: `${left}%`, width: `${width}%` }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleSegmentSelected(segment.id)
                   }}
-                />
-                <div
-                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-r-md hover:bg-red-400/80"
-                  onMouseDown={(e) => {
-                    e.stopPropagation()
-                    setTrimDrag({ segmentId: segment.id, side: 'right' })
-                  }}
-                />
-              </div>
-            )
-          })}
+                >
+                  <span className="text-[10px] text-red-300/60 pl-1.5 truncate block leading-tight pt-1">
+                    {fmtMs(segment.endTime - segment.startTime)}
+                  </span>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-l-md hover:bg-red-400/80"
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      setTrimDrag({ segmentId: segment.id, side: 'left' })
+                    }}
+                  />
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-r-md hover:bg-red-400/80"
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      setTrimDrag({ segmentId: segment.id, side: 'right' })
+                    }}
+                  />
+                </div>
+              )
+            })
+          })()}
 
           <div
             className="absolute top-0 bottom-0 w-px bg-white/80 pointer-events-none"
-            style={{ left: `${(playheadMs / totalDur) * 100}%` }}
+            style={{ left: `${absToVisualFrac(playheadMs) * 100}%` }}
           />
           <div
             className="absolute -top-px w-2 h-2 bg-white rounded-sm -translate-x-1/2 pointer-events-none"
-            style={{ left: `${(playheadMs / totalDur) * 100}%` }}
+            style={{ left: `${absToVisualFrac(playheadMs) * 100}%` }}
           />
         </div>
 
         <div className="flex justify-between mt-1 px-0.5">
           <span className="text-[10px] text-zinc-600 font-mono">0:00</span>
-          <span className="text-[10px] text-zinc-600 font-mono">{fmtMs(Math.floor(totalDur / 2))}</span>
-          <span className="text-[10px] text-zinc-600 font-mono">{fmtMs(totalDur)}</span>
+          <span className="text-[10px] text-zinc-600 font-mono">{fmtMs(Math.floor(visualDuration / 2))}</span>
+          <span className="text-[10px] text-zinc-600 font-mono">{fmtMs(visualDuration)}</span>
         </div>
       </div>
     </div>
