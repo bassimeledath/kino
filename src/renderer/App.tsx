@@ -51,6 +51,9 @@ function App() {
   const smoothCursorRef = useRef({ x: 0.5, y: 0.5 })
   const ripplesRef = useRef<ClickRipple[]>([])
   const rippleIdRef = useRef(0)
+  const prevClickRef = useRef(false)
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
 
   useEffect(() => {
     if (typeof window.kino?.onCursorData !== 'function') return
@@ -59,32 +62,30 @@ function App() {
         x: frame.x / (window.screen.width || 1920),
         y: frame.y / (window.screen.height || 1080),
       }
+
+      // Detect mousedown transition from main process global click tracking
+      if (frame.click && !prevClickRef.current) {
+        const canvas = canvasRef.current
+        if (canvas) {
+          const pad = settingsRef.current.padding
+          const videoW = canvas.width - 2 * pad
+          const videoH = canvas.height - 2 * pad
+          const cx = pad + smoothCursorRef.current.x * videoW
+          const cy = pad + smoothCursorRef.current.y * videoH
+
+          ripplesRef.current.push({
+            id: rippleIdRef.current,
+            x: cx,
+            y: cy,
+            startTime: performance.now(),
+          })
+          rippleIdRef.current += 1
+        }
+      }
+      prevClickRef.current = frame.click
     })
     return off
-  }, [])
-
-  useEffect(() => {
-    if (status !== 'recording') return
-
-    const onMouseDown = () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const cx = smoothCursorRef.current.x * canvas.width
-      const cy = smoothCursorRef.current.y * canvas.height
-
-      ripplesRef.current.push({
-        id: rippleIdRef.current,
-        x: cx,
-        y: cy,
-        startTime: performance.now(),
-      })
-      rippleIdRef.current += 1
-    }
-
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [status, canvasRef])
+  }, [canvasRef])
 
   useEffect(() => {
     if (status !== 'recording') return
