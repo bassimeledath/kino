@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { Channels } from '../shared/channels'
+import type { CursorFrame } from '../shared/types'
 
 contextBridge.exposeInMainWorld('kino', {
   // Request/response
@@ -16,11 +17,26 @@ contextBridge.exposeInMainWorld('kino', {
 
   // Events from main
   onRecordingStatus: (cb: (status: string) => void) => {
-    ipcRenderer.on(Channels.RECORDING_STATUS, (_e, data) => cb(data))
-    return () => ipcRenderer.removeAllListeners(Channels.RECORDING_STATUS)
+    const handler = (_e: Electron.IpcRendererEvent, data: string) => cb(data)
+    ipcRenderer.on(Channels.RECORDING_STATUS, handler)
+    return () => ipcRenderer.removeListener(Channels.RECORDING_STATUS, handler)
   },
+
   onExportProgress: (cb: (progress: number) => void) => {
-    ipcRenderer.on(Channels.EXPORT_PROGRESS, (_e, p) => cb(p))
-    return () => ipcRenderer.removeAllListeners(Channels.EXPORT_PROGRESS)
+    const handler = (_e: Electron.IpcRendererEvent, p: number) => cb(p)
+    ipcRenderer.on(Channels.EXPORT_PROGRESS, handler)
+    return () => ipcRenderer.removeListener(Channels.EXPORT_PROGRESS, handler)
+  },
+
+  onExportDone: (cb: (result: { path: string | null; error?: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, r: { path: string | null; error?: string }) => cb(r)
+    ipcRenderer.on(Channels.EXPORT_DONE, handler)
+    return () => ipcRenderer.removeListener(Channels.EXPORT_DONE, handler)
+  },
+
+  onCursorData: (cb: (frame: CursorFrame) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, frame: CursorFrame) => cb(frame)
+    ipcRenderer.on(Channels.CURSOR_DATA, handler)
+    return () => ipcRenderer.removeListener(Channels.CURSOR_DATA, handler)
   },
 })

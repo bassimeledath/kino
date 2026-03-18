@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Agent-browser wrapper: fixes eval format + implements diff screenshot
+# Needed because agent-browser 0.9.4 returns {"data":{"result":X}} instead of {"data":X}
+# and doesn't have the diff screenshot command.
+
+REAL_AB="/Users/bassime/.nvm/versions/node/v22.19.0/bin/agent-browser"
+AGENT_BROWSER_AUTO_CONNECT="${AGENT_BROWSER_AUTO_CONNECT:-true}"
+export AGENT_BROWSER_AUTO_CONNECT
+
+# Check if this is "diff screenshot --baseline <file>" command
+if [ "${1:-}" = "diff" ] && [ "${2:-}" = "screenshot" ]; then
+  # Extract baseline path
+  baseline=""
+  json_flag=""
+  shift 2
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --baseline|-b) baseline="$2"; shift 2 ;;
+      --json) json_flag="--json"; shift ;;
+      *) shift ;;
+    esac
+  done
+
+  if [ -z "$baseline" ] || [ ! -f "$baseline" ]; then
+    echo '{"success":false,"error":"baseline not found"}'
+    exit 1
+  fi
+
+  # Take current screenshot to a temp file
+  tmpfile=$(mktemp /tmp/ab-screenshot-XXXXXX.png)
+  "$REAL_AB" screenshot "$tmpfile" 2>/dev/null
+  if [ ! -f "$tmpfile" ]; then
+    echo '{"success":false,"error":"screenshot failed"}'
+    exit 1
+  fi
+
+  # Compare using Python PIL/numpy
+  mismatch=$(python3 - "$tmpfile" "$baseline" <<'PYEOF'
+import sys
+from PIL import Image, ImageChops
+import math
+
+try:
+    img1 = Image.open(sys.argv[1]).convert('RGB')
+    img2 = Image.open(sys.argv[2]).convert('RGB')
+
+    # Resize to same dimensions if different
+    if img1.size != img2.size:
+        img2 = img2.resize(img1.size, Image.LANCZOS)
+
+    diff = ImageChops.difference(img1, img2)
+    pixels = list(diff.getdata())
+    total = len(pixels)
+    if total == 0:
+        print("0")
+    else:
+        # Count significantly different pixels (threshold: any channel > 10)
+        diff_count = sum(1 for p in pixels if max(p) > 10)
+        mismatch_pct = diff_count / total
+        print(f"{mismatch_pct:.4f}")
+except Exception as e:
+    print("0.5")
+PYEOF
+)
+
+  rm -f "$tmpfile"
+
+  if [ -z "$mismatch" ]; then
+    mismatch="0.5"
+  fi
+
+  echo "{\"success\":true,\"data\":{\"mismatchPercentage\":$mismatch},\"error\":null}"
+  exit 0
+fi
+
+# For eval with --json flag: fix the output format
+if [ "${1:-}" = "eval" ]; then
+  # Run real agent-browser and capture output
+  output=$("$REAL_AB" "$@" 2>&1)
+  exit_code=$?
+
+  if echo "$output" | grep -q '"data":{"result":'; then
+    # Transform {"data":{"result":X}} -> {"data":X}
+    # Extract the result value and reconstruct
+    fixed=$(echo "$output" | python3 -c "
+import sys, json, re
+line = sys.stdin.read().strip()
+try:
+    d = json.loads(line)
+    if isinstance(d.get('data'), dict) and 'result' in d['data']:
+        d['data'] = d['data']['result']
+    print(json.dumps(d, separators=(',', ':')))
+except:
+    print(line)
+")
+    echo "$fixed"
+    exit $exit_code
+  else
+    echo "$output"
+    exit $exit_code
+  fi
+fi
+
+# All other commands: pass through
+exec "$REAL_AB" "$@"

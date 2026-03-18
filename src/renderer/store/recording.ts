@@ -39,7 +39,11 @@ export const useRecordingStore = create<RecordingStore>((set) => ({
 
 // Listen for status updates from main process
 if (typeof window !== 'undefined' && window.kino) {
-  window.kino.onRecordingStatus((status: string) => {
-    useRecordingStore.getState().setStatus(status as RecordingStatus)
-  })
+  try {
+    window.kino.onRecordingStatus((status: string) => {
+      useRecordingStore.getState().setStatus(status as RecordingStatus)
+    })
+  } catch {
+    // IPC listener setup failed gracefully
+  }
 }
