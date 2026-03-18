@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Kino Benchmark — Scores the app for swarmy
 # Outputs JSON with "score" field to stdout. All logs to stderr.
+# Compatible with bash 3.2 (macOS default)
 
 PORT="${KINO_CDP_PORT:-9222}"
 BASELINES_DIR="${KINO_BASELINES_DIR:-benchmarks/baselines}"
@@ -22,7 +23,7 @@ cd "$PROJECT_DIR"
 if ! npm run build >/dev/null 2>&1; then
   log "Build failed"
   echo '{"score":0,"error":"build failed"}'
-  exit 0  # exit 0 so swarmy can still read the score
+  exit 0
 fi
 
 # ── Launch Kino with CDP ────────────────────────────
@@ -48,66 +49,66 @@ if [ "$CDP_READY" = false ]; then
 fi
 
 log "CDP connected"
-sleep 2  # let the app fully render
+sleep 2
 
-# ── Auto Feature Checks (binary) ───────────────────
-declare -A FEATURES
+# ── Feature Checks (simple variables, bash 3 compatible) ──
 
-check_cmd() {
-  local id=$1
-  shift
-  if "$@" >/dev/null 2>&1; then
-    FEATURES[$id]=1
+pass=0
+total=0
+checks_json=""
+
+check() {
+  local name="$1"
+  local result="$2"  # "1" or "0"
+  total=$((total + 1))
+  pass=$((pass + result))
+  if [ "$result" = "1" ]; then
+    log "  $name: PASS"
+    val="true"
   else
-    FEATURES[$id]=0
+    log "  $name: FAIL"
+    val="false"
   fi
+  if [ -n "$checks_json" ]; then checks_json="$checks_json,"; fi
+  checks_json="$checks_json\"$name\":$val"
 }
 
-# Launch check — get title
+# Launch check
 title=$($AB get title --json 2>/dev/null || echo '{}')
 if echo "$title" | grep -q '"title"'; then
-  FEATURES[launch]=1
-  log "  launch: PASS"
+  check "launch" 1
 else
-  FEATURES[launch]=0
-  log "  launch: FAIL"
+  check "launch" 0
 fi
 
-# Console errors — inject capture and check
+# Console errors
 $AB eval "window.__errs=[]; window.addEventListener('error', e => window.__errs.push(e.message))" >/dev/null 2>&1 || true
 sleep 1
-err_result=$($AB eval "window.__errs?.length ?? -1" --json 2>/dev/null || echo '{"data":"-1"}')
-err_count=$(echo "$err_result" | grep -o '"data":"[^"]*"' | head -1 | sed 's/"data":"//;s/"//' || echo "-1")
-if [ "$err_count" = "0" ]; then
-  FEATURES[no_errors]=1
-  log "  no_errors: PASS"
+err_result=$($AB eval "window.__errs?.length ?? -1" --json 2>/dev/null || echo '{}')
+if echo "$err_result" | grep -q '"data":0\|"data":"0"'; then
+  check "no_errors" 1
 else
-  FEATURES[no_errors]=0
-  log "  no_errors: FAIL (count=$err_count)"
+  check "no_errors" 0
 fi
 
 # UI element checks
 for elem in record-btn settings export-btn zoom-toggle; do
   result=$($AB is visible "[data-testid=$elem]" --json 2>/dev/null || echo '{}')
   if echo "$result" | grep -q 'true'; then
-    FEATURES[$elem]=1
-    log "  $elem: PASS"
+    check "$elem" 1
   else
-    FEATURES[$elem]=0
-    log "  $elem: FAIL"
+    check "$elem" 0
   fi
 done
 
-# Record flow — click record, wait, check if stop button appears
+# Record flow — click record, check stop button appears
 $AB click "[data-testid=record-btn]" >/dev/null 2>&1 || true
 sleep 2
 stop_result=$($AB is visible "[data-testid=stop-btn]" --json 2>/dev/null || echo '{}')
 if echo "$stop_result" | grep -q 'true'; then
-  FEATURES[record_flow]=1
-  log "  record_flow: PASS"
+  check "record_flow" 1
 else
-  FEATURES[record_flow]=0
-  log "  record_flow: FAIL"
+  check "record_flow" 0
 fi
 $AB click "[data-testid=stop-btn]" >/dev/null 2>&1 || true
 sleep 1
@@ -115,11 +116,9 @@ sleep 1
 # Timeline visible after recording
 timeline_result=$($AB is visible "[data-testid=timeline]" --json 2>/dev/null || echo '{}')
 if echo "$timeline_result" | grep -q 'true'; then
-  FEATURES[timeline]=1
-  log "  timeline: PASS"
+  check "timeline" 1
 else
-  FEATURES[timeline]=0
-  log "  timeline: FAIL"
+  check "timeline" 0
 fi
 
 # Settings panel opens
@@ -127,18 +126,17 @@ $AB click "[data-testid=settings]" >/dev/null 2>&1 || true
 sleep 1
 settings_result=$($AB is visible "[data-testid=settings-panel]" --json 2>/dev/null || echo '{}')
 if echo "$settings_result" | grep -q 'true'; then
-  FEATURES[settings_open]=1
-  log "  settings_open: PASS"
+  check "settings_open" 1
 else
-  FEATURES[settings_open]=0
-  log "  settings_open: FAIL"
+  check "settings_open" 0
 fi
 
 # ── Calculate auto feature score ────────────────────
-pass=0
-total=${#FEATURES[@]}
-for v in "${FEATURES[@]}"; do pass=$((pass + v)); done
-auto_feature_score=$(echo "scale=4; $pass / $total" | bc)
+if [ "$total" -gt 0 ]; then
+  auto_feature_score=$(echo "scale=4; $pass / $total" | bc)
+else
+  auto_feature_score="0"
+fi
 log "Auto features: $pass/$total = $auto_feature_score"
 
 # ── Visual Diff Checks ─────────────────────────────
@@ -188,20 +186,7 @@ fi
 final=$(echo "$final" | awk '{if ($1 > 1) print 1; else if ($1 < 0) print 0; else print $1}')
 log "Final score: $final"
 
-# ── Build feature checks JSON ──────────────────────
-features_json="{"
-first=true
-for key in "${!FEATURES[@]}"; do
-  if [ "$first" = true ]; then first=false; else features_json+=","; fi
-  if [ "${FEATURES[$key]}" = "1" ]; then
-    features_json+="\"$key\":true"
-  else
-    features_json+="\"$key\":false"
-  fi
-done
-features_json+="}"
-
 # ── Output ──────────────────────────────────────────
 cat <<OUTJSON
-{"score":$final,"breakdown":{"auto_features":{"score":$auto_feature_score,"weight":0.35,"pass":$pass,"total":$total,"checks":$features_json},"auto_visual":{"score":$visual_score,"weight":0.25},"human":{"score":$human_score,"weight":$([ "$has_human" = true ] && echo "0.40" || echo "0"),"round":$human_round}}}
+{"score":$final,"breakdown":{"auto_features":{"score":$auto_feature_score,"weight":0.35,"pass":$pass,"total":$total,"checks":{$checks_json}},"auto_visual":{"score":$visual_score,"weight":0.25},"human":{"score":$human_score,"weight":$([ "$has_human" = true ] && echo "0.40" || echo "0"),"round":$human_round}}}
 OUTJSON
