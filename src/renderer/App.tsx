@@ -48,6 +48,7 @@ function App() {
 
   const cameraRef = useRef(new SpringCamera())
   const cursorNormRef = useRef({ x: 0.5, y: 0.5 })
+  const smoothCursorRef = useRef({ x: 0.5, y: 0.5 })
   const ripplesRef = useRef<ClickRipple[]>([])
   const rippleIdRef = useRef(0)
 
@@ -69,8 +70,8 @@ function App() {
       const canvas = canvasRef.current
       if (!canvas) return
 
-      const cx = cursorNormRef.current.x * canvas.width
-      const cy = cursorNormRef.current.y * canvas.height
+      const cx = smoothCursorRef.current.x * canvas.width
+      const cy = smoothCursorRef.current.y * canvas.height
 
       ripplesRef.current.push({
         id: rippleIdRef.current,
@@ -95,6 +96,7 @@ function App() {
       captureVideoRef,
       camera: cameraRef.current,
       cursorNormRef,
+      smoothCursorRef,
       ripplesRef,
       settings,
     })

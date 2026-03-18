@@ -20,6 +20,7 @@ interface StartRenderLoopInput {
   captureVideoRef: RefObject<HTMLVideoElement>
   camera: SpringCamera
   cursorNormRef: MutableRefObject<NormalizedCursor>
+  smoothCursorRef: MutableRefObject<NormalizedCursor>
   ripplesRef: MutableRefObject<ClickRipple[]>
   settings: ProjectSettings
 }
@@ -49,8 +50,23 @@ function clipRoundedRect(ctx: CanvasRenderingContext2D, w: number, h: number, ra
   ctx.clip()
 }
 
+/**
+ * Catmull-Rom spline interpolation between four points.
+ * Returns the interpolated value at parameter t (0-1) between p1 and p2.
+ */
+function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
+  const t2 = t * t
+  const t3 = t2 * t
+  return 0.5 * (
+    2 * p1 +
+    (-p0 + p2) * t +
+    (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+    (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+  )
+}
+
 export function startRenderLoop(input: StartRenderLoopInput): () => void {
-  const { canvas, captureVideoRef, camera, cursorNormRef, ripplesRef, settings } = input
+  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, settings } = input
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
 
@@ -58,6 +74,10 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
   let prevCursor = { ...cursorNormRef.current }
   let lastFrameMs = performance.now()
   let lastRenderLogMs = 0
+
+  // Ring buffer of last 4 cursor positions for Catmull-Rom interpolation
+  const cursorHistory: NormalizedCursor[] = Array.from({ length: 4 }, () => ({ ...cursorNormRef.current }))
+  let historyIndex = 0
 
   const intervalId = setInterval(() => {
     const now = performance.now()
@@ -69,8 +89,33 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     const pad = settings.padding
     const videoW = vw - 2 * pad
     const videoH = vh - 2 * pad
-    const cx = pad + cursorNormRef.current.x * videoW
-    const cy = pad + cursorNormRef.current.y * videoH
+
+    // Push current raw position into ring buffer
+    cursorHistory[historyIndex] = { ...cursorNormRef.current }
+    historyIndex = (historyIndex + 1) % 4
+
+    // Compute smoothed cursor position
+    let smoothX: number
+    let smoothY: number
+
+    if (settings.cursorSmoothing) {
+      const p0 = cursorHistory[(historyIndex + 0) % 4]
+      const p1 = cursorHistory[(historyIndex + 1) % 4]
+      const p2 = cursorHistory[(historyIndex + 2) % 4]
+      const p3 = cursorHistory[(historyIndex + 3) % 4]
+      smoothX = catmullRom(p0.x, p1.x, p2.x, p3.x, 0.5)
+      smoothY = catmullRom(p0.y, p1.y, p2.y, p3.y, 0.5)
+    } else {
+      smoothX = cursorNormRef.current.x
+      smoothY = cursorNormRef.current.y
+    }
+
+    // Expose smoothed position for external consumers (e.g. click ripple origin)
+    smoothCursorRef.current = { x: smoothX, y: smoothY }
+
+    // Cursor position mapped to padded video area
+    const cx = pad + smoothX * videoW
+    const cy = pad + smoothY * videoH
 
     const dx = (cursorNormRef.current.x - prevCursor.x) * vw
     const dy = (cursorNormRef.current.y - prevCursor.y) * vh
@@ -85,8 +130,8 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       currentZoom: camera.zoom,
     })
 
-    const tx = (cursorNormRef.current.x - 0.5) * videoW
-    const ty = (cursorNormRef.current.y - 0.5) * videoH
+    const tx = (smoothX - 0.5) * videoW
+    const ty = (smoothY - 0.5) * videoH
     camera.update(tx, ty, targetZoom, dt)
 
     ctx.fillStyle = settings.background
