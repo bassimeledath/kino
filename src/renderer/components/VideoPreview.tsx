@@ -1,7 +1,7 @@
 import type { RefObject } from 'react'
 import type { ProjectSettings, RecordingStatus, TimelineSegment } from '../../shared/types'
 import { fmtMs } from '../utils/format'
-import { EditPlayback } from './EditPlayback'
+import { CanvasPlayback } from './CanvasPlayback'
 
 interface VideoPreviewProps {
   status: RecordingStatus
@@ -90,13 +90,14 @@ export function VideoPreview(props: VideoPreviewProps) {
       ) : hasRecorded ? (
         <div className="mb-8 w-full max-w-2xl">
           {playbackUrl ? (
-            <EditPlayback
+            <CanvasPlayback
               playbackUrl={playbackUrl}
               segments={segments}
               playheadMs={playheadMs}
               onPlayheadChange={onPlayheadChange}
               isPlaying={isPlaying}
               onPlayingChange={onPlayingChange}
+              settings={settings}
             />
           ) : (
             <div

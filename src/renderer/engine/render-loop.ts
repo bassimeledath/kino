@@ -26,7 +26,7 @@ interface StartRenderLoopInput {
   settings: ProjectSettings
 }
 
-function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) {
+export function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) {
   const r = Math.max(0, Math.min(radius, Math.min(w, h) / 2))
   ctx.beginPath()
   if (r > 0) {
