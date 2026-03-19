@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen, desktopCapturer, dialog } from 'electron'
 import { join } from 'path'
-import { spawn } from 'child_process'
+import { spawn, execFileSync } from 'child_process'
 import { writeFileSync, mkdtempSync, mkdirSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { Channels } from '../shared/channels'
@@ -9,21 +9,36 @@ import type { CursorFrame, ExportDoneResult, ExportStartConfig } from '../shared
 // Allow CDP WebSocket connections from any origin (required for benchmark tooling)
 app.commandLine.appendSwitch('remote-allow-origins', '*')
 
-// Swift helper that polls CGEventSourceButtonState at ~120Hz and emits "down"/"up" on state change.
-// Requires no special permissions — CGEventSourceButtonState reads combined session state.
-const CLICK_MONITOR_SWIFT = `import CoreGraphics
-import Foundation
-setbuf(stdout, nil)
-var lastState = false
-while true {
-    let down = CGEventSource.buttonState(.combinedSessionState, button: .left)
-    if down != lastState {
-        lastState = down
-        print(down ? "down" : "up")
+// C helper that polls CGEventSourceButtonState at ~120Hz and emits "down"/"up" on state change.
+// Compiled with clang at startup — more reliable than Swift across macOS SDK versions.
+const CLICK_MONITOR_C = `#include <CoreGraphics/CoreGraphics.h>
+#include <stdio.h>
+#include <unistd.h>
+int main() {
+    setbuf(stdout, NULL);
+    int last = 0;
+    while(1) {
+        int down = CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, kCGMouseButtonLeft);
+        if (down != last) { last = down; puts(down ? "down" : "up"); }
+        usleep(8000);
     }
-    Thread.sleep(forTimeInterval: 0.008)
 }
 `
+
+const CLICK_MONITOR_BIN = join(tmpdir(), 'kino-click-monitor')
+const CLICK_MONITOR_SRC = CLICK_MONITOR_BIN + '.c'
+let clickMonitorReady = false
+
+function compileClickMonitor(): boolean {
+  try {
+    writeFileSync(CLICK_MONITOR_SRC, CLICK_MONITOR_C)
+    execFileSync('cc', ['-framework', 'CoreGraphics', '-o', CLICK_MONITOR_BIN, CLICK_MONITOR_SRC])
+    return true
+  } catch (err) {
+    console.error('[click-monitor] compile failed', err)
+    return false
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 let cursorInterval: ReturnType<typeof setInterval> | null = null
@@ -73,6 +88,11 @@ function createMainWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // Compile the C click monitor at startup so it's ready for recording
+  if (process.platform === 'darwin') {
+    clickMonitorReady = compileClickMonitor()
+  }
+
   mainWindow = createMainWindow()
 
   // IPC: List capture sources
@@ -110,11 +130,9 @@ app.whenReady().then(() => {
     recordingStartTime = Date.now()
     isMouseDown = false
 
-    // Start macOS click monitor (Swift helper polling CGEventSourceButtonState)
-    if (process.platform === 'darwin') {
-      const tmpSwift = join(tmpdir(), 'kino-click-monitor.swift')
-      writeFileSync(tmpSwift, CLICK_MONITOR_SWIFT)
-      clickProcess = spawn('/usr/bin/swift', [tmpSwift], { stdio: ['ignore', 'pipe', 'ignore'] })
+    // Start macOS click monitor (C helper polling CGEventSourceButtonState)
+    if (process.platform === 'darwin' && clickMonitorReady) {
+      clickProcess = spawn(CLICK_MONITOR_BIN, [], { stdio: ['ignore', 'pipe', 'ignore'] })
       clickProcess.stdout!.on('data', (data: Buffer) => {
         for (const line of data.toString().split('\n')) {
           if (line === 'down') isMouseDown = true
