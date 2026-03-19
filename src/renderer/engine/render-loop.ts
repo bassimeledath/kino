@@ -74,7 +74,6 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
   const zoomController = new ZoomController()
   let prevCursor = { ...cursorNormRef.current }
   let lastFrameMs = performance.now()
-  let lastRenderLogMs = 0
 
   // Cursor shake removal: track stable cursor position, ignore micro-jitter
   let stableCursorX = cursorNormRef.current.x
@@ -148,20 +147,13 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       dwellThresholdMs: settings.dwellDelay,
       speed,
       dtMs: dt * 1000,
-      currentZoom: camera.zoom,
       clicked,
     })
 
     // CRITICAL: At zoom 1.0x, camera target = center (0,0). Only pan when zoomed in.
-    let tx: number
-    let ty: number
-    if (camera.zoom > 1.05) {
-      tx = (smoothX - 0.5) * videoW
-      ty = (smoothY - 0.5) * videoH
-    } else {
-      tx = 0
-      ty = 0
-    }
+    const shouldPan = camera.zoom > 1.05
+    const tx = shouldPan ? (smoothX - 0.5) * videoW : 0
+    const ty = shouldPan ? (smoothY - 0.5) * videoH : 0
     camera.update(tx, ty, targetZoom, dt)
 
     ctx.fillStyle = settings.background
@@ -219,10 +211,6 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     ctx.fill()
     ctx.restore()
 
-    if (now - lastRenderLogMs >= 1000) {
-      console.log(`[render] loop tick, canvas visible, zoom=${camera.zoom.toFixed(3)}`)
-      lastRenderLogMs = now
-    }
   }, 16)
 
   return () => {

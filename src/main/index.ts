@@ -4,7 +4,12 @@ import { spawn, execFileSync } from 'child_process'
 import { writeFileSync, mkdtempSync, mkdirSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { Channels } from '../shared/channels'
-import type { CursorFrame, ExportDoneResult, ExportStartConfig } from '../shared/types'
+import type {
+  CursorFrame,
+  ExportDoneResult,
+  ExportStartConfig,
+  RecordingStatus,
+} from '../shared/types'
 
 // Allow CDP WebSocket connections from any origin (required for benchmark tooling)
 app.commandLine.appendSwitch('remote-allow-origins', '*')
@@ -46,6 +51,16 @@ let clickProcess: ReturnType<typeof spawn> | null = null
 let isMouseDown = false
 let recordingStartTime = 0
 const cursorLog: CursorFrame[] = []
+
+function sendRecordingStatus(status: RecordingStatus) {
+  mainWindow?.webContents.send(Channels.RECORDING_STATUS, status)
+}
+
+function completeExport(result: ExportDoneResult): ExportDoneResult {
+  mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
+  mainWindow?.webContents.send(Channels.EXPORT_DONE, result)
+  return result
+}
 
 function exportDataToBuffer(raw: unknown): Buffer | null {
   if (!raw) return null
@@ -125,7 +140,7 @@ app.whenReady().then(() => {
   })
 
   // IPC: Recording start — kick off cursor tracking at ~60Hz
-  ipcMain.on(Channels.RECORDING_START, (_event, _config) => {
+  ipcMain.on(Channels.RECORDING_START, () => {
     cursorLog.length = 0
     recordingStartTime = Date.now()
     isMouseDown = false
@@ -155,7 +170,7 @@ app.whenReady().then(() => {
       mainWindow?.webContents.send(Channels.CURSOR_DATA, frame)
     }, 16) // ~60Hz
 
-    mainWindow?.webContents.send(Channels.RECORDING_STATUS, 'recording')
+    sendRecordingStatus('recording')
   })
 
   // IPC: Recording stop — stop cursor tracking and click monitor
@@ -175,7 +190,7 @@ app.whenReady().then(() => {
     mkdirSync(benchDir, { recursive: true })
     writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog))
 
-    mainWindow?.webContents.send(Channels.RECORDING_STATUS, 'idle')
+    sendRecordingStatus('idle')
   })
 
   // IPC: Export — transcode WebM to MP4 via ffmpeg-static
@@ -193,9 +208,7 @@ app.whenReady().then(() => {
     if (!videoBuffer || dataLen === 0) {
       const error = 'No export data received in main process.'
       console.error('[export] no data available; aborting')
-      mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-      mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error })
-      return { path: null, error }
+      return completeExport({ path: null, error })
     }
 
     // Save WebM blob to temp file
@@ -214,25 +227,25 @@ app.whenReady().then(() => {
     })
     if (saveResult.canceled || !saveResult.filePath) {
       console.log('[export] save dialog canceled')
-      mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-      mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null })
-      return { path: null }
+      return completeExport({ path: null })
     }
 
     const outputPath = saveResult.filePath
     console.log('[export] output selected', { outputPath })
 
     // Resolve resolution
-    const resMap: Record<string, string> = {
+    const resMap: Record<'720p' | '1080p' | '4k', string> = {
       '720p': '1280:720',
       '1080p': '1920:1080',
       '4k': '3840:2160',
     }
-    const targetScale = resMap[config.resolution ?? 'native']
+    const targetScale = config.resolution && config.resolution !== 'native'
+      ? resMap[config.resolution]
+      : undefined
     const vf = targetScale
       ? `scale=${targetScale}:force_original_aspect_ratio=decrease,pad=${targetScale}:-1:-1:color=black`
       : 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
-    const fps = config.fps || 30
+    const fps = config.fps ?? 30
 
     // Load ffmpeg-static path
     let ffmpegBin: string | null = null
@@ -249,9 +262,7 @@ app.whenReady().then(() => {
         ? `ffmpeg binary not found at ${ffmpegBin}`
         : 'ffmpeg-static not available in main process'
       console.error('[export] ffmpeg unavailable', { error })
-      mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-      mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error })
-      return { path: null, error }
+      return completeExport({ path: null, error })
     }
 
     const args = [
@@ -278,7 +289,7 @@ app.whenReady().then(() => {
         // Parse progress from ffmpeg output "time=HH:MM:SS.ss"
         const match = text.match(/time=(\d+):(\d+):(\d+\.\d+)/)
         if (match) {
-          const secs = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3])
+          const secs = parseInt(match[1], 10) * 3600 + parseInt(match[2], 10) * 60 + parseFloat(match[3])
           // We don't know total duration easily, so use a soft estimate
           const progress = Math.min(secs / 10, 0.95)
           mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, progress)
@@ -288,25 +299,19 @@ app.whenReady().then(() => {
       proc.on('error', (error) => {
         const message = `ffmpeg spawn error: ${error.message}`
         console.error('[export] ffmpeg spawn error', error)
-        mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-        mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error: message })
-        resolve({ path: null, error: message })
+        resolve(completeExport({ path: null, error: message }))
       })
 
       proc.on('close', (code) => {
         console.log('[export] ffmpeg closed', { code })
         if (code === 0) {
-          mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-          mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: outputPath })
-          resolve({ path: outputPath })
+          resolve(completeExport({ path: outputPath }))
           return
         }
 
         const message = `ffmpeg exit ${code ?? 'unknown'}${stderrTail ? `: ${stderrTail}` : ''}`
         console.error('[export] ffmpeg failed', { code, stderrTail })
-        mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-        mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error: message })
-        resolve({ path: null, error: message })
+        resolve(completeExport({ path: null, error: message }))
       })
     })
   })

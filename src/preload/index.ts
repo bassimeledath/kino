@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { Channels } from '../shared/channels'
-import type { CursorFrame, ExportDoneResult, ExportStartConfig } from '../shared/types'
+import type {
+  CursorFrame,
+  ExportDoneResult,
+  ExportStartConfig,
+  RecordingStatus,
+} from '../shared/types'
 
 contextBridge.exposeInMainWorld('kino', {
   // Request/response
@@ -14,8 +19,8 @@ contextBridge.exposeInMainWorld('kino', {
   startExport: (config: ExportStartConfig) => ipcRenderer.invoke(Channels.EXPORT_START, config) as Promise<ExportDoneResult>,
 
   // Events from main
-  onRecordingStatus: (cb: (status: string) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, data: string) => cb(data)
+  onRecordingStatus: (cb: (status: RecordingStatus) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: RecordingStatus) => cb(data)
     ipcRenderer.on(Channels.RECORDING_STATUS, handler)
     return () => ipcRenderer.removeListener(Channels.RECORDING_STATUS, handler)
   },

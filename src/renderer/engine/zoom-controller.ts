@@ -10,7 +10,6 @@ interface ZoomUpdateInput {
   dwellThresholdMs: number   // idle time before dwell triggers (e.g. 4000)
   speed: number
   dtMs: number
-  currentZoom: number
   clicked: boolean
 }
 
@@ -116,7 +115,6 @@ export class ZoomController {
 
   private setState(next: ZoomState) {
     if (this.state === next) return
-    console.log(`[zoom] state: ${this.state} -> ${next}`)
     this.state = next
   }
 

@@ -36,7 +36,12 @@ export interface ExportDoneResult {
   error?: string
 }
 
-export type RecordingStatus = 'idle' | 'countdown' | 'recording' | 'paused' | 'processing'
+export const RECORDING_STATUSES = ['idle', 'countdown', 'recording', 'paused', 'processing'] as const
+export type RecordingStatus = (typeof RECORDING_STATUSES)[number]
+
+export function isRecordingStatus(value: string): value is RecordingStatus {
+  return (RECORDING_STATUSES as readonly string[]).includes(value)
+}
 
 export interface TimelineSegment {
   id: string
