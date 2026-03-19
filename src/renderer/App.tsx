@@ -48,7 +48,11 @@ function App() {
     getChunks,
   } = useRecording({ settings, setStatus })
 
-  const cameraRef = useRef(new SpringCamera())
+  const cameraRef = useRef(new SpringCamera(
+    settings.screenSpringStiffness,
+    settings.screenSpringDamping,
+    settings.screenSpringMass,
+  ))
   const cursorNormRef = useRef({ x: 0.5, y: 0.5 })
   const smoothCursorRef = useRef({ x: 0.5, y: 0.5 })
   const ripplesRef = useRef<ClickRipple[]>([])

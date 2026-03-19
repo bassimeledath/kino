@@ -76,6 +76,11 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
   let lastFrameMs = performance.now()
   let lastRenderLogMs = 0
 
+  // Cursor shake removal: track stable cursor position, ignore micro-jitter
+  let stableCursorX = cursorNormRef.current.x
+  let stableCursorY = cursorNormRef.current.y
+  const shakeThresholdPx = 8 // ~500px total / 60fps ≈ 8px per frame
+
   // Ring buffer of last 4 cursor positions for Catmull-Rom interpolation
   const cursorHistory: NormalizedCursor[] = Array.from({ length: 4 }, () => ({ ...cursorNormRef.current }))
   let historyIndex = 0
@@ -91,8 +96,17 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     const videoW = vw - 2 * pad
     const videoH = vh - 2 * pad
 
-    // Push current raw position into ring buffer
-    cursorHistory[historyIndex] = { ...cursorNormRef.current }
+    // Cursor shake removal: only update stable position if movement exceeds threshold
+    const rawDx = (cursorNormRef.current.x - stableCursorX) * vw
+    const rawDy = (cursorNormRef.current.y - stableCursorY) * vh
+    const rawDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy)
+    if (rawDist > shakeThresholdPx) {
+      stableCursorX = cursorNormRef.current.x
+      stableCursorY = cursorNormRef.current.y
+    }
+
+    // Push stable (de-jittered) position into ring buffer
+    cursorHistory[historyIndex] = { x: stableCursorX, y: stableCursorY }
     historyIndex = (historyIndex + 1) % 4
 
     // Compute smoothed cursor position
@@ -107,8 +121,8 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       smoothX = catmullRom(p0.x, p1.x, p2.x, p3.x, 0.5)
       smoothY = catmullRom(p0.y, p1.y, p2.y, p3.y, 0.5)
     } else {
-      smoothX = cursorNormRef.current.x
-      smoothY = cursorNormRef.current.y
+      smoothX = stableCursorX
+      smoothY = stableCursorY
     }
 
     // Expose smoothed position for external consumers (e.g. click ripple origin)
@@ -138,8 +152,16 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       clicked,
     })
 
-    const tx = (smoothX - 0.5) * videoW
-    const ty = (smoothY - 0.5) * videoH
+    // CRITICAL: At zoom 1.0x, camera target = center (0,0). Only pan when zoomed in.
+    let tx: number
+    let ty: number
+    if (camera.zoom > 1.05) {
+      tx = (smoothX - 0.5) * videoW
+      ty = (smoothY - 0.5) * videoH
+    } else {
+      tx = 0
+      ty = 0
+    }
     camera.update(tx, ty, targetZoom, dt)
 
     ctx.fillStyle = settings.background

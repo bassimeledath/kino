@@ -4,22 +4,23 @@ export class SpringCamera {
   private vZoom = 0
 
   constructor(
-    private stiffness = 120,
-    private damping = 12,
+    private stiffness = 200,
+    private damping = 40,
+    private mass = 2.25,
     public x = 0,
     public y = 0,
     public zoom = 1.0,
   ) {}
 
   update(tx: number, ty: number, tz: number, dt: number) {
-    const ax = this.stiffness * (tx - this.x) - this.damping * this.vx
-    const ay = this.stiffness * (ty - this.y) - this.damping * this.vy
+    const ax = (this.stiffness * (tx - this.x) - this.damping * this.vx) / this.mass
+    const ay = (this.stiffness * (ty - this.y) - this.damping * this.vy) / this.mass
     this.vx += ax * dt
     this.vy += ay * dt
     this.x += this.vx * dt
     this.y += this.vy * dt
 
-    const az = this.stiffness * (tz - this.zoom) - this.damping * this.vZoom
+    const az = (this.stiffness * (tz - this.zoom) - this.damping * this.vZoom) / this.mass
     this.vZoom += az * dt
     this.zoom += this.vZoom * dt
   }

@@ -5,9 +5,9 @@ export type ZoomState =
 
 interface ZoomUpdateInput {
   autoZoomEnabled: boolean
-  autoZoomLevel: number      // click zoom target (e.g. 2.0)
+  autoZoomLevel: number      // click zoom target (e.g. 1.9)
   dwellZoomLevel: number     // dwell zoom target (e.g. 1.3)
-  dwellThresholdMs: number   // idle time before dwell triggers (e.g. 3000)
+  dwellThresholdMs: number   // idle time before dwell triggers (e.g. 4000)
   speed: number
   dtMs: number
   currentZoom: number
@@ -19,9 +19,11 @@ export class ZoomController {
   private dwellMs = 0
   private holdMs = 0
   private cooldownMs = 0
+  private timeSinceLastClickMs = 0
 
   private readonly idleSpeedThreshold = 15
-  private readonly clickHoldMs = 2000
+  private readonly clickGroupGapMs = 2000   // clicks within 2s extend the zoom session
+  private readonly clickHoldMinMs = 2000    // minimum hold after last click in group
   private readonly cooldownAfterZoomMs = 500
 
   update(input: ZoomUpdateInput): number {
@@ -32,16 +34,18 @@ export class ZoomController {
       return 1
     }
 
-    // Click always takes priority over any state
+    // Click always takes priority — groups rapid clicks into a single zoom session
     if (clicked) {
       if (this.state === 'CLICK_HOLD') {
-        // Subsequent click during hold — extend the hold timer
+        // Subsequent click during hold — reset hold timer (extend the group)
         this.holdMs = 0
+        this.timeSinceLastClickMs = 0
       } else {
         this.setState('CLICK_ZOOM_IN')
         this.holdMs = 0
         this.cooldownMs = 0
         this.dwellMs = 0
+        this.timeSinceLastClickMs = 0
       }
     }
 
@@ -72,7 +76,9 @@ export class ZoomController {
 
       case 'CLICK_HOLD': {
         this.holdMs += dtMs
-        if (this.holdMs >= this.clickHoldMs) {
+        this.timeSinceLastClickMs += dtMs
+        // Only zoom out after no clicks for clickGroupGapMs AND minimum hold time elapsed
+        if (this.timeSinceLastClickMs >= this.clickGroupGapMs && this.holdMs >= this.clickHoldMinMs) {
           this.setState('CLICK_ZOOM_OUT')
           return 1
         }
@@ -118,6 +124,7 @@ export class ZoomController {
     this.dwellMs = 0
     this.holdMs = 0
     this.cooldownMs = 0
+    this.timeSinceLastClickMs = 0
     if (this.state !== 'IDLE') {
       this.setState('IDLE')
     }

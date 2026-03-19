@@ -30,6 +30,9 @@ export interface ProjectSettings {
   cornerRadius: number // pixels
   shadowEnabled: boolean
   shadowBlur: number
+  screenSpringStiffness: number
+  screenSpringDamping: number
+  screenSpringMass: number
 }
 
 export interface ExportConfig {
