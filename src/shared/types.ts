@@ -1,13 +1,3 @@
-export interface RecordingConfig {
-  sourceId: string
-  sourceType: 'screen' | 'window' | 'region'
-  audioSources: {
-    systemAudio: boolean
-    microphone: boolean
-  }
-  countdown: number // seconds, 0 = no countdown
-}
-
 export interface CursorFrame {
   t: number      // ms since recording start
   x: number      // screen X coordinate
@@ -33,15 +23,6 @@ export interface ProjectSettings {
   screenSpringStiffness: number
   screenSpringDamping: number
   screenSpringMass: number
-}
-
-export interface ExportConfig {
-  format: 'mp4'
-  codec: 'h264' | 'h265'
-  resolution: '720p' | '1080p' | '4k'
-  fps: 30 | 60
-  quality: 'fast' | 'balanced' | 'high'
-  outputPath: string
 }
 
 export interface ExportStartConfig {

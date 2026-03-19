@@ -3,11 +3,8 @@ import type { RecordingStatus, ProjectSettings } from '../../shared/types'
 
 interface RecordingStore {
   status: RecordingStatus
-  duration: number
-  selectedSourceId: string | null
   settings: ProjectSettings
   setStatus: (status: RecordingStatus) => void
-  setSource: (id: string) => void
   updateSettings: (partial: Partial<ProjectSettings>) => void
 }
 
@@ -33,11 +30,8 @@ const defaultSettings: ProjectSettings = {
 
 export const useRecordingStore = create<RecordingStore>((set) => ({
   status: 'idle',
-  duration: 0,
-  selectedSourceId: null,
   settings: defaultSettings,
   setStatus: (status) => set({ status }),
-  setSource: (id) => set({ selectedSourceId: id }),
   updateSettings: (partial) =>
     set((state) => ({ settings: { ...state.settings, ...partial } })),
 }))

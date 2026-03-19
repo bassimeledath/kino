@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { TimelineSegment } from '../../shared/types'
+import { fmtMs } from '../utils/format'
 
 interface TimelineProps {
   hasRecorded: boolean
@@ -12,12 +13,6 @@ interface TimelineProps {
   onSplit: () => void
   onDeleteSegment: () => void
   onUpdateSegment: (id: string, updates: Partial<TimelineSegment>) => void
-}
-
-function fmtMs(ms: number) {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
 export function Timeline(props: TimelineProps) {

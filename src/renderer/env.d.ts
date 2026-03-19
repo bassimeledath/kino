@@ -12,7 +12,6 @@ interface KinoAPI {
   checkPermission: (type: string) => Promise<string>
   startRecording: (config: unknown) => void
   stopRecording: () => void
-  pauseRecording: () => void
   startExport: (config: ExportStartConfig) => Promise<ExportDoneResult>
   onRecordingStatus: (cb: (status: string) => void) => () => void
   onExportProgress: (cb: (progress: number) => void) => () => void

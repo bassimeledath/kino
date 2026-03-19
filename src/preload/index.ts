@@ -10,8 +10,6 @@ contextBridge.exposeInMainWorld('kino', {
   // Recording controls
   startRecording: (config: unknown) => ipcRenderer.send(Channels.RECORDING_START, config),
   stopRecording: () => ipcRenderer.send(Channels.RECORDING_STOP),
-  pauseRecording: () => ipcRenderer.send(Channels.RECORDING_PAUSE),
-
   // Export
   startExport: (config: ExportStartConfig) => ipcRenderer.invoke(Channels.EXPORT_START, config) as Promise<ExportDoneResult>,
 

@@ -10,15 +10,10 @@ import { SpringCamera } from './engine/spring-camera'
 import { usePlayback } from './hooks/usePlayback'
 import { useRecording } from './hooks/useRecording'
 import { useRecordingStore } from './store/recording'
+import { fmtMs } from './utils/format'
 
 function genId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
-
-function fmtMs(ms: number) {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
 function App() {
@@ -209,7 +204,7 @@ function App() {
   })
 
   const handleUpdateSegment = useCallback(
-    (id: string, updates: Partial<import('../shared/types').TimelineSegment>) => {
+    (id: string, updates: Partial<TimelineSegment>) => {
       setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
     },
     [],

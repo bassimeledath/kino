@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
 import type { ProjectSettings, RecordingStatus, TimelineSegment } from '../../shared/types'
+import { fmtMs } from '../utils/format'
 import { EditPlayback } from './EditPlayback'
 
 interface VideoPreviewProps {
@@ -16,12 +17,6 @@ interface VideoPreviewProps {
   onPlayheadChange: (ms: number) => void
   isPlaying: boolean
   onPlayingChange: (playing: boolean) => void
-}
-
-function fmtMs(ms: number) {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
 export function VideoPreview(props: VideoPreviewProps) {
