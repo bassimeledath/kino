@@ -16,6 +16,8 @@ const defaultSettings: ProjectSettings = {
   resolution: 'native',
   autoZoom: true,
   autoZoomLevel: 2.0,
+  dwellZoomLevel: 1.3,
+  dwellDelay: 3000,
   cursorSmoothing: true,
   cursorSize: 1.5,
   clickHighlight: true,

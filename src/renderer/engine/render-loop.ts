@@ -22,6 +22,7 @@ interface StartRenderLoopInput {
   cursorNormRef: MutableRefObject<NormalizedCursor>
   smoothCursorRef: MutableRefObject<NormalizedCursor>
   ripplesRef: MutableRefObject<ClickRipple[]>
+  clickedRef: MutableRefObject<boolean>
   settings: ProjectSettings
 }
 
@@ -66,7 +67,7 @@ function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): 
 }
 
 export function startRenderLoop(input: StartRenderLoopInput): () => void {
-  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, settings } = input
+  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, clickedRef, settings } = input
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
 
@@ -122,12 +123,19 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     const speed = dt > 0 ? Math.sqrt(dx * dx + dy * dy) / dt : 0
     prevCursor = { ...cursorNormRef.current }
 
+    // Read and consume click flag (set by App.tsx on click transition)
+    const clicked = clickedRef.current
+    clickedRef.current = false
+
     const targetZoom = zoomController.update({
       autoZoomEnabled: settings.autoZoom,
       autoZoomLevel: settings.autoZoomLevel,
+      dwellZoomLevel: settings.dwellZoomLevel,
+      dwellThresholdMs: settings.dwellDelay,
       speed,
       dtMs: dt * 1000,
       currentZoom: camera.zoom,
+      clicked,
     })
 
     const tx = (smoothX - 0.5) * videoW

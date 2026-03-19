@@ -1,53 +1,125 @@
-export type ZoomState = 'IDLE' | 'ZOOM_IN' | 'HOLD' | 'ZOOM_OUT'
+export type ZoomState =
+  | 'IDLE'
+  | 'CLICK_ZOOM_IN' | 'CLICK_HOLD' | 'CLICK_ZOOM_OUT'
+  | 'DWELL_ZOOM_IN' | 'DWELL_HOLD' | 'DWELL_ZOOM_OUT'
 
 interface ZoomUpdateInput {
   autoZoomEnabled: boolean
-  autoZoomLevel: number
+  autoZoomLevel: number      // click zoom target (e.g. 2.0)
+  dwellZoomLevel: number     // dwell zoom target (e.g. 1.3)
+  dwellThresholdMs: number   // idle time before dwell triggers (e.g. 3000)
   speed: number
   dtMs: number
   currentZoom: number
+  clicked: boolean
 }
 
 export class ZoomController {
-  private dwellMs = 0
-  private zoomCooldownMs = 0
   private state: ZoomState = 'IDLE'
+  private dwellMs = 0
+  private holdMs = 0
+  private cooldownMs = 0
+
+  private readonly idleSpeedThreshold = 15
+  private readonly clickHoldMs = 2000
+  private readonly cooldownAfterZoomMs = 500
 
   update(input: ZoomUpdateInput): number {
-    const { autoZoomEnabled, autoZoomLevel, speed, dtMs, currentZoom } = input
+    const { autoZoomEnabled, autoZoomLevel, dwellZoomLevel, dwellThresholdMs, speed, dtMs, clicked } = input
 
     if (!autoZoomEnabled) {
-      this.dwellMs = 0
-      this.zoomCooldownMs = 0
-      this.setState('IDLE', speed)
+      this.reset()
       return 1
     }
 
-    if (speed > 30) {
-      this.dwellMs = 0
-      this.zoomCooldownMs = 300
-    } else {
-      this.dwellMs += dtMs
+    // Click always takes priority over any state
+    if (clicked) {
+      if (this.state === 'CLICK_HOLD') {
+        // Subsequent click during hold — extend the hold timer
+        this.holdMs = 0
+      } else {
+        this.setState('CLICK_ZOOM_IN')
+        this.holdMs = 0
+        this.cooldownMs = 0
+        this.dwellMs = 0
+      }
     }
 
-    if (this.dwellMs > 400) {
-      this.setState('ZOOM_IN', speed)
-      return autoZoomLevel
-    }
+    switch (this.state) {
+      case 'IDLE': {
+        if (this.cooldownMs > 0) {
+          this.cooldownMs -= dtMs
+          return 1
+        }
+        if (speed < this.idleSpeedThreshold) {
+          this.dwellMs += dtMs
+        } else {
+          this.dwellMs = 0
+        }
+        if (this.dwellMs >= dwellThresholdMs) {
+          this.setState('DWELL_ZOOM_IN')
+          this.holdMs = 0
+          return dwellZoomLevel
+        }
+        return 1
+      }
 
-    if (this.zoomCooldownMs > 0) {
-      this.zoomCooldownMs -= dtMs
-      this.setState('HOLD', speed)
-      return currentZoom
-    }
+      case 'CLICK_ZOOM_IN': {
+        this.setState('CLICK_HOLD')
+        this.holdMs = 0
+        return autoZoomLevel
+      }
 
-    this.setState('ZOOM_OUT', speed)
-    return 1
+      case 'CLICK_HOLD': {
+        this.holdMs += dtMs
+        if (this.holdMs >= this.clickHoldMs) {
+          this.setState('CLICK_ZOOM_OUT')
+          return 1
+        }
+        return autoZoomLevel
+      }
+
+      case 'CLICK_ZOOM_OUT': {
+        this.setState('IDLE')
+        this.cooldownMs = this.cooldownAfterZoomMs
+        this.dwellMs = 0
+        return 1
+      }
+
+      case 'DWELL_ZOOM_IN': {
+        this.setState('DWELL_HOLD')
+        return dwellZoomLevel
+      }
+
+      case 'DWELL_HOLD': {
+        if (speed > this.idleSpeedThreshold) {
+          this.setState('DWELL_ZOOM_OUT')
+          return 1
+        }
+        return dwellZoomLevel
+      }
+
+      case 'DWELL_ZOOM_OUT': {
+        this.setState('IDLE')
+        this.cooldownMs = this.cooldownAfterZoomMs
+        this.dwellMs = 0
+        return 1
+      }
+    }
   }
 
-  private setState(next: ZoomState, speed: number) {
+  private setState(next: ZoomState) {
     if (this.state === next) return
-    console.log(`[zoom] state: ${this.state} -> ${next}, speed=${speed.toFixed(1)}`)
+    console.log(`[zoom] state: ${this.state} -> ${next}`)
     this.state = next
+  }
+
+  private reset() {
+    this.dwellMs = 0
+    this.holdMs = 0
+    this.cooldownMs = 0
+    if (this.state !== 'IDLE') {
+      this.setState('IDLE')
+    }
   }
 }

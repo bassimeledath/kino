@@ -19,7 +19,9 @@ export interface ProjectSettings {
   fps: 30 | 60
   resolution: 'native' | '1080p' | '720p' | '4k'
   autoZoom: boolean
-  autoZoomLevel: number // 1.0 - 4.0
+  autoZoomLevel: number // 1.0 - 4.0 (click zoom target)
+  dwellZoomLevel: number // gentle zoom for long dwell (e.g. 1.3)
+  dwellDelay: number // ms idle before dwell zoom triggers (e.g. 3000)
   cursorSmoothing: boolean
   cursorSize: number // multiplier, 1.0 = default
   clickHighlight: boolean

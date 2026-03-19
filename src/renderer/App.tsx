@@ -54,6 +54,7 @@ function App() {
   const ripplesRef = useRef<ClickRipple[]>([])
   const rippleIdRef = useRef(0)
   const prevClickRef = useRef(false)
+  const clickedRef = useRef(false)
   const settingsRef = useRef(settings)
   settingsRef.current = settings
 
@@ -67,6 +68,7 @@ function App() {
 
       // Detect mousedown transition from main process global click tracking
       if (frame.click && !prevClickRef.current) {
+        clickedRef.current = true
         const canvas = canvasRef.current
         if (canvas) {
           const pad = settingsRef.current.padding
@@ -101,6 +103,7 @@ function App() {
       cursorNormRef,
       smoothCursorRef,
       ripplesRef,
+      clickedRef,
       settings,
     })
 
