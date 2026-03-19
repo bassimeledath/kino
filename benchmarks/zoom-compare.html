@@ -9,149 +9,156 @@
     background: #0a0a0a;
     color: #e0e0e0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    overflow-x: hidden;
+    padding: 20px;
   }
   .header {
     text-align: center;
-    padding: 28px 20px 12px;
+    padding: 10px 0 20px;
   }
   .header h1 {
     font-size: 22px;
     font-weight: 600;
-    letter-spacing: -0.3px;
     color: #fff;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .header p {
     font-size: 13px;
     color: #888;
-    max-width: 640px;
-    margin: 0 auto;
-    line-height: 1.5;
   }
   .controls {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    padding: 14px 0 18px;
+    text-align: center;
+    margin-bottom: 20px;
   }
   .controls button {
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #ccc;
-    padding: 7px 18px;
-    border-radius: 6px;
-    font-size: 13px;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 10px 32px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.15s;
   }
-  .controls button:hover { background: #252525; border-color: #555; color: #fff; }
-  .controls button.active { background: #2a2a4a; border-color: #6366f1; color: #a5b4fc; }
+  .controls button:hover { background: #1d4ed8; }
+  .controls button:disabled { background: #333; cursor: default; }
   .grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
-    padding: 0 24px 32px;
     max-width: 1500px;
     margin: 0 auto;
   }
   .cell {
     background: #111;
     border-radius: 10px;
-    border: 1px solid #1e1e1e;
     overflow: hidden;
-    transition: border-color 0.2s;
+    border: 1px solid #222;
   }
-  .cell:hover { border-color: #6366f1; }
-  .cell canvas {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #000;
-    cursor: none;
+  .cell-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #161616;
+    border-bottom: 1px solid #222;
   }
-  .cell-info {
-    padding: 10px 14px;
-    border-top: 1px solid #1a1a1a;
-  }
-  .cell-label {
-    font-size: 14px;
+  .cell-header .label {
+    font-size: 13px;
     font-weight: 600;
     color: #fff;
-    margin-bottom: 4px;
+  }
+  .badges {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
-  .cell-label .tag {
-    font-size: 10px;
-    font-weight: 500;
-    background: #6366f1;
-    color: #fff;
-    padding: 1px 6px;
-    border-radius: 3px;
+  .badge {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
   }
-  .cell-params {
+  .badge-zoom {
+    background: #1e3a5f;
+    color: #60a5fa;
+  }
+  .badge-state {
+    background: #1a1a2e;
+    color: #888;
+    min-width: 70px;
+    text-align: center;
+  }
+  .badge-state.ZOOM_IN { background: #1e3a2e; color: #4ade80; }
+  .badge-state.HOLD { background: #3a3a1e; color: #facc15; }
+  .badge-state.ZOOM_OUT { background: #3a1e1e; color: #f87171; }
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  .canvas-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .params {
+    padding: 8px 12px;
     font-size: 11px;
     color: #666;
-    line-height: 1.6;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-top: 1px solid #1a1a1a;
   }
-  .cell-params span { color: #888; }
-  .zoom-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0,0,0,0.7);
-    color: #a5b4fc;
+  .params span { white-space: nowrap; }
+  .params .key { color: #555; }
+  .params .val { color: #999; font-family: 'SF Mono', monospace; }
+  video { display: none; }
+  .cell-play {
+    background: rgba(37,99,235,0.85);
+    color: #fff;
+    border: none;
+    padding: 3px 12px;
+    border-radius: 5px;
     font-size: 11px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    padding: 2px 8px;
-    border-radius: 4px;
-    pointer-events: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-left: 8px;
   }
-  .state-badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    background: rgba(0,0,0,0.7);
-    color: #888;
-    font-size: 10px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    padding: 2px 8px;
-    border-radius: 4px;
-    pointer-events: none;
-  }
-  .canvas-wrap { position: relative; }
+  .cell-play:hover { background: rgba(29,78,216,0.95); }
+  .cell-play.active { background: rgba(239,68,68,0.85); }
+  .cell-play.active:hover { background: rgba(220,38,38,0.95); }
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>Zoom Parameter Comparison</h1>
-  <p>Move your mouse over the videos to see how each zoom tuning responds. All 6 canvases track the same cursor position — only the spring and dwell parameters differ.</p>
+  <p>Click Play on any variation to see how it handles your cursor movement. Play multiple to compare side by side.</p>
 </div>
 
 <div class="controls">
-  <button id="btnPlayAll">Play All</button>
-  <button id="btnPauseAll">Pause All</button>
-  <button id="btnDemo1" class="active">demo1.mp4</button>
-  <button id="btnDemo2">demo2.mp4</button>
+  <button id="playAllBtn" disabled>Play All</button>
+  <button id="stopAllBtn" style="margin-left:8px;background:#ef4444" disabled>Stop All</button>
 </div>
 
 <div class="grid" id="grid"></div>
 
-<!-- Hidden video elements -->
-<video id="video1" src="demo1.mp4" loop muted playsinline preload="auto" style="display:none"></video>
-<video id="video2" src="demo2.mp4" loop muted playsinline preload="auto" style="display:none"></video>
+<!-- Individual videos created per cell in JS -->
 
 <script>
-// ─── SpringCamera (ported from spring-camera.ts) ───
+// --- SpringCamera (port from spring-camera.ts) ---
 class SpringCamera {
   constructor(stiffness = 120, damping = 12) {
     this.stiffness = stiffness;
     this.damping = damping;
     this.x = 0; this.y = 0; this.zoom = 1.0;
+    this.vx = 0; this.vy = 0; this.vZoom = 0;
+  }
+  reset() {
+    this.x = 0; this.y = 0; this.zoom = 1;
     this.vx = 0; this.vy = 0; this.vZoom = 0;
   }
   update(tx, ty, tz, dt) {
@@ -167,215 +174,266 @@ class SpringCamera {
   }
 }
 
-// ─── ZoomController (ported from zoom-controller.ts) ───
+// --- ZoomController (port from zoom-controller.ts, parameterized) ---
 class ZoomController {
-  constructor(dwellThreshold = 400, speedThreshold = 30, cooldown = 300) {
+  constructor(dwellThreshold, speedThreshold, cooldownMs) {
     this.dwellThreshold = dwellThreshold;
     this.speedThreshold = speedThreshold;
-    this.cooldown = cooldown;
+    this.cooldownMs = cooldownMs;
     this.dwellMs = 0;
     this.zoomCooldownMs = 0;
     this.state = 'IDLE';
   }
-  update({ autoZoomLevel, speed, dtMs, currentZoom }) {
+  update(input) {
+    const { autoZoomLevel, speed, dtMs, currentZoom } = input;
     if (speed > this.speedThreshold) {
       this.dwellMs = 0;
-      this.zoomCooldownMs = this.cooldown;
+      this.zoomCooldownMs = this.cooldownMs;
     } else {
       this.dwellMs += dtMs;
     }
     if (this.dwellMs > this.dwellThreshold) {
-      this._setState('ZOOM_IN');
+      this.setState('ZOOM_IN');
       return autoZoomLevel;
     }
     if (this.zoomCooldownMs > 0) {
       this.zoomCooldownMs -= dtMs;
-      this._setState('HOLD');
+      this.setState('HOLD');
       return currentZoom;
     }
-    this._setState('ZOOM_OUT');
+    this.setState('ZOOM_OUT');
     return 1;
   }
-  _setState(next) {
-    if (this.state !== next) this.state = next;
+  setState(next) {
+    this.state = next;
   }
 }
 
-// ─── Variations ───
-const variations = [
-  { id: 'A', label: 'Gentle Cinematic',  dwell: 600,  speedThresh: 40, cooldown: 500, stiffness: 30,  damping: 8,  desc: 'Slow zoom in, soft' },
-  { id: 'B', label: 'Screen Studio-ish', dwell: 800,  speedThresh: 50, cooldown: 400, stiffness: 40,  damping: 10, desc: 'Balanced, polished' },
-  { id: 'C', label: 'Ultra Slow',        dwell: 1200, speedThresh: 60, cooldown: 600, stiffness: 20,  damping: 6,  desc: 'Very deliberate' },
-  { id: 'D', label: 'Current (Snappy)',   dwell: 400,  speedThresh: 30, cooldown: 300, stiffness: 120, damping: 12, desc: "Today's defaults" },
-  { id: 'E', label: 'Smooth Damped',      dwell: 800,  speedThresh: 45, cooldown: 500, stiffness: 35,  damping: 14, desc: 'Heavy damping' },
-  { id: 'F', label: 'Quick but Smooth',   dwell: 500,  speedThresh: 35, cooldown: 350, stiffness: 50,  damping: 10, desc: 'Faster response, still smooth' },
+// --- Variations ---
+const VARIATIONS = [
+  { name: 'A  Gentle Cinematic',  dwell: 600,  speedTh: 40, cooldown: 500, stiffness: 30,  damping: 8  },
+  { name: 'B  Screen Studio-ish', dwell: 800,  speedTh: 50, cooldown: 400, stiffness: 40,  damping: 10 },
+  { name: 'C  Ultra Slow',        dwell: 1200, speedTh: 60, cooldown: 600, stiffness: 20,  damping: 6  },
+  { name: 'D  Current (Snappy)',   dwell: 400,  speedTh: 30, cooldown: 300, stiffness: 120, damping: 12 },
+  { name: 'E  Smooth Damped',     dwell: 800,  speedTh: 45, cooldown: 500, stiffness: 35,  damping: 14 },
+  { name: 'F  Quick but Smooth',  dwell: 500,  speedTh: 35, cooldown: 350, stiffness: 50,  damping: 10 },
 ];
 
 const AUTO_ZOOM_LEVEL = 2.0;
+const CANVAS_W = 640;
+const CANVAS_H = 360;
 
-// ─── Shared state ───
-const cursor = { x: 0.5, y: 0.5 };
-let activeVideo = document.getElementById('video1');
-
-// ─── Build grid ───
+// --- State ---
+let cursorLog = null;
+let maxX = 1, maxY = 1;
+const playAllBtn = document.getElementById('playAllBtn');
+const stopAllBtn = document.getElementById('stopAllBtn');
 const grid = document.getElementById('grid');
 const cells = [];
 
-for (const v of variations) {
+// --- Build grid (each cell gets its own video) ---
+VARIATIONS.forEach((v, i) => {
   const cell = document.createElement('div');
   cell.className = 'cell';
 
+  const header = document.createElement('div');
+  header.className = 'cell-header';
+
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = v.name;
+
+  const rightSide = document.createElement('div');
+  rightSide.className = 'badges';
+
+  const cellPlayBtn = document.createElement('button');
+  cellPlayBtn.className = 'cell-play';
+  cellPlayBtn.textContent = 'Play';
+
+  const zoomBadge = document.createElement('span');
+  zoomBadge.className = 'badge badge-zoom';
+  zoomBadge.textContent = '1.0x';
+
+  const stateBadge = document.createElement('span');
+  stateBadge.className = 'badge badge-state';
+  stateBadge.textContent = 'IDLE';
+
+  rightSide.appendChild(cellPlayBtn);
+  rightSide.appendChild(zoomBadge);
+  rightSide.appendChild(stateBadge);
+  header.appendChild(label);
+  header.appendChild(rightSide);
+
   const wrap = document.createElement('div');
   wrap.className = 'canvas-wrap';
-
   const canvas = document.createElement('canvas');
-  canvas.width = 640;
-  canvas.height = 360;
+  canvas.width = CANVAS_W;
+  canvas.height = CANVAS_H;
   wrap.appendChild(canvas);
 
-  const zoomBadge = document.createElement('div');
-  zoomBadge.className = 'zoom-badge';
-  zoomBadge.textContent = '1.00x';
-  wrap.appendChild(zoomBadge);
+  const vid = document.createElement('video');
+  vid.preload = 'auto';
+  vid.muted = true;
+  vid.playsInline = true;
+  vid.src = 'kino-demo.mp4';
+  vid.style.display = 'none';
+  cell.appendChild(vid);
 
-  const stateBadge = document.createElement('div');
-  stateBadge.className = 'state-badge';
-  stateBadge.textContent = 'IDLE';
-  wrap.appendChild(stateBadge);
+  const params = document.createElement('div');
+  params.className = 'params';
+  params.innerHTML =
+    `<span><span class="key">dwell</span> <span class="val">${v.dwell}ms</span></span>` +
+    `<span><span class="key">speed</span> <span class="val">${v.speedTh}</span></span>` +
+    `<span><span class="key">cool</span> <span class="val">${v.cooldown}ms</span></span>` +
+    `<span><span class="key">stiff</span> <span class="val">${v.stiffness}</span></span>` +
+    `<span><span class="key">damp</span> <span class="val">${v.damping}</span></span>`;
 
+  cell.appendChild(header);
   cell.appendChild(wrap);
-
-  const info = document.createElement('div');
-  info.className = 'cell-info';
-  info.innerHTML = `
-    <div class="cell-label"><span class="tag">${v.id}</span> ${v.label}</div>
-    <div class="cell-params">
-      <span>dwell</span> ${v.dwell}ms &nbsp;
-      <span>speed</span> ${v.speedThresh} &nbsp;
-      <span>cooldown</span> ${v.cooldown}ms &nbsp;
-      <span>stiffness</span> ${v.stiffness} &nbsp;
-      <span>damping</span> ${v.damping}
-    </div>
-  `;
-  cell.appendChild(info);
+  cell.appendChild(params);
   grid.appendChild(cell);
 
-  cells.push({
-    canvas,
-    ctx: canvas.getContext('2d'),
+  const cellData = {
+    canvas, ctx: canvas.getContext('2d'),
     camera: new SpringCamera(v.stiffness, v.damping),
-    zoom: new ZoomController(v.dwell, v.speedThresh, v.cooldown),
-    zoomBadge,
-    stateBadge,
-    variation: v,
-    prevCursor: { x: 0.5, y: 0.5 },
+    zoomCtrl: new ZoomController(v.dwell, v.speedTh, v.cooldown),
+    zoomBadge, stateBadge, playBtn: cellPlayBtn,
+    video: vid, playing: false, lastTime: 0,
+  };
+  cells.push(cellData);
+});
+
+// --- Load cursor log ---
+fetch('cursor-log.json')
+  .then(r => r.json())
+  .then(log => {
+    cursorLog = log;
+    maxX = Math.max(...log.map(e => e.x));
+    maxY = Math.max(...log.map(e => e.y));
+    for (let i = 0; i < log.length; i++) {
+      log[i].nx = log[i].x / maxX;
+      log[i].ny = log[i].y / maxY;
+      if (i === 0) { log[i].speed = 0; continue; }
+      const dx = log[i].x - log[i - 1].x;
+      const dy = log[i].y - log[i - 1].y;
+      const dtSec = (log[i].t - log[i - 1].t) / 1000;
+      log[i].speed = dtSec > 0 ? Math.sqrt(dx * dx + dy * dy) / dtSec : 0;
+    }
+    enableButtons();
   });
+
+function enableButtons() {
+  playAllBtn.disabled = false;
+  stopAllBtn.disabled = false;
+  cells.forEach(c => { c.playBtn.disabled = false; });
 }
 
-// ─── Mouse tracking ───
-document.addEventListener('mousemove', (e) => {
-  // Normalize to the grid area — find any canvas and map
-  const gridRect = grid.getBoundingClientRect();
-  // We want a 0-1 value that's consistent across all canvases
-  // Use the grid bounds as the reference area
-  cursor.x = Math.max(0, Math.min(1, (e.clientX - gridRect.left) / gridRect.width));
-  cursor.y = Math.max(0, Math.min(1, (e.clientY - gridRect.top) / gridRect.height));
-});
-
-// ─── Controls ───
-document.getElementById('btnPlayAll').addEventListener('click', () => {
-  activeVideo.play();
-});
-document.getElementById('btnPauseAll').addEventListener('click', () => {
-  activeVideo.pause();
-});
-document.getElementById('btnDemo1').addEventListener('click', () => {
-  switchVideo('video1');
-});
-document.getElementById('btnDemo2').addEventListener('click', () => {
-  switchVideo('video2');
-});
-
-function switchVideo(id) {
-  activeVideo.pause();
-  activeVideo = document.getElementById(id);
-  activeVideo.currentTime = 0;
-  activeVideo.play();
-  document.getElementById('btnDemo1').classList.toggle('active', id === 'video1');
-  document.getElementById('btnDemo2').classList.toggle('active', id === 'video2');
+// --- Per-cell play/stop ---
+function startCell(c) {
+  if (c.playing) return;
+  c.camera.reset();
+  c.zoomCtrl.dwellMs = 0;
+  c.zoomCtrl.zoomCooldownMs = 0;
+  c.zoomCtrl.state = 'IDLE';
+  c.video.currentTime = 0;
+  c.video.play();
+  c.playing = true;
+  c.lastTime = 0;
+  c.playBtn.textContent = 'Stop';
+  c.playBtn.classList.add('active');
 }
 
-// ─── Render loop ───
-let lastFrameMs = performance.now();
+function stopCell(c) {
+  c.video.pause();
+  c.playing = false;
+  c.playBtn.textContent = 'Play';
+  c.playBtn.classList.remove('active');
+}
 
-function frame(now) {
-  const dt = Math.min((now - lastFrameMs) / 1000, 0.1);
-  lastFrameMs = now;
+cells.forEach(c => {
+  c.playBtn.addEventListener('click', () => {
+    if (c.playing) stopCell(c);
+    else startCell(c);
+  });
+  c.video.addEventListener('ended', () => stopCell(c));
+});
 
-  for (const cell of cells) {
-    const { canvas, ctx, camera, zoom, zoomBadge, stateBadge, prevCursor } = cell;
-    const vw = canvas.width;
-    const vh = canvas.height;
+// --- Play All / Stop All ---
+playAllBtn.addEventListener('click', () => cells.forEach(startCell));
+stopAllBtn.addEventListener('click', () => cells.forEach(stopCell));
 
-    // Compute cursor speed
-    const dx = (cursor.x - prevCursor.x) * vw;
-    const dy = (cursor.y - prevCursor.y) * vh;
-    const speed = dt > 0 ? Math.sqrt(dx * dx + dy * dy) / dt : 0;
-    cell.prevCursor = { x: cursor.x, y: cursor.y };
+// --- Binary search for closest log entry by time ---
+function findEntry(log, timeMs) {
+  let lo = 0, hi = log.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (log[mid].t < timeMs) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo > 0 && Math.abs(log[lo - 1].t - timeMs) < Math.abs(log[lo].t - timeMs)) return lo - 1;
+  return lo;
+}
 
-    // Zoom state machine
-    const targetZoom = zoom.update({
+// --- Render loop (always running, only updates playing cells) ---
+let lastFrameTime = 0;
+function tick(timestamp) {
+  if (lastFrameTime === 0) lastFrameTime = timestamp;
+  const frameDt = Math.min((timestamp - lastFrameTime) / 1000, 0.05);
+  lastFrameTime = timestamp;
+  const frameDtMs = frameDt * 1000;
+
+  for (const c of cells) {
+    if (!c.playing) continue;
+
+    const videoTimeMs = c.video.currentTime * 1000;
+    const entryIdx = findEntry(cursorLog, videoTimeMs);
+    const entry = cursorLog[entryIdx];
+    const speed = entry.speed;
+
+    const targetZoom = c.zoomCtrl.update({
       autoZoomLevel: AUTO_ZOOM_LEVEL,
-      speed,
-      dtMs: dt * 1000,
-      currentZoom: camera.zoom,
+      speed, dtMs: frameDtMs,
+      currentZoom: c.camera.zoom,
     });
 
-    // Spring camera target
-    const tx = (cursor.x - 0.5) * vw;
-    const ty = (cursor.y - 0.5) * vh;
-    camera.update(tx, ty, targetZoom, dt);
+    const tx = (entry.nx - 0.5) * CANVAS_W;
+    const ty = (entry.ny - 0.5) * CANVAS_H;
+    c.camera.update(tx, ty, targetZoom, frameDt);
 
-    // ─ Draw ─
+    const ctx = c.ctx;
+    const cam = c.camera;
+
     ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, vw, vh);
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    if (activeVideo.readyState >= 2) {
+    if (c.video.readyState >= 2) {
       ctx.save();
-      ctx.translate(vw / 2, vh / 2);
-      ctx.scale(camera.zoom, camera.zoom);
-      ctx.translate(-vw / 2 - camera.x, -vh / 2 - camera.y);
-      ctx.drawImage(activeVideo, 0, 0, vw, vh);
+      ctx.translate(CANVAS_W / 2, CANVAS_H / 2);
+      ctx.scale(cam.zoom, cam.zoom);
+      ctx.translate(-CANVAS_W / 2 - cam.x, -CANVAS_H / 2 - cam.y);
+      ctx.drawImage(c.video, 0, 0, CANVAS_W, CANVAS_H);
       ctx.restore();
     }
 
-    // Cursor dot
-    const cx = cursor.x * vw;
-    const cy = cursor.y * vh;
-    ctx.save();
+    const dotX = CANVAS_W / 2 + cam.zoom * (entry.nx * CANVAS_W - CANVAS_W / 2 - cam.x);
+    const dotY = CANVAS_H / 2 + cam.zoom * (entry.ny * CANVAS_H - CANVAS_H / 2 - cam.y);
     ctx.beginPath();
-    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.arc(dotX, dotY, 5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 4;
     ctx.fill();
-    ctx.restore();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
 
-    // Update badges
-    zoomBadge.textContent = camera.zoom.toFixed(2) + 'x';
-    stateBadge.textContent = zoom.state;
-
-    // Color state badge
-    const stateColors = { IDLE: '#888', ZOOM_IN: '#4ade80', HOLD: '#facc15', ZOOM_OUT: '#f87171' };
-    stateBadge.style.color = stateColors[zoom.state] || '#888';
+    c.zoomBadge.textContent = cam.zoom.toFixed(1) + 'x';
+    c.stateBadge.textContent = c.zoomCtrl.state;
+    c.stateBadge.className = 'badge badge-state ' + c.zoomCtrl.state;
   }
 
-  requestAnimationFrame(frame);
+  requestAnimationFrame(tick);
 }
-
-// Start
-activeVideo.play().catch(() => {});
-requestAnimationFrame(frame);
+requestAnimationFrame(tick);
 </script>
 </body>
 </html>

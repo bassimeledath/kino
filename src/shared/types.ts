@@ -21,7 +21,7 @@ export interface ProjectSettings {
   autoZoom: boolean
   autoZoomLevel: number // 1.0 - 4.0 (click zoom target)
   dwellZoomLevel: number // gentle zoom for long dwell (e.g. 1.3)
-  dwellDelay: number // ms idle before dwell zoom triggers (e.g. 3000)
+  dwellDelay: number // ms idle before dwell zoom triggers (e.g. 4000)
   cursorSmoothing: boolean
   cursorSize: number // multiplier, 1.0 = default
   clickHighlight: boolean
