@@ -39,6 +39,17 @@ export interface ExportConfig {
   outputPath: string
 }
 
+export interface ExportStartConfig {
+  data?: ArrayBuffer
+  resolution?: 'native' | '1080p' | '720p' | '4k'
+  fps?: 30 | 60
+}
+
+export interface ExportDoneResult {
+  path: string | null
+  error?: string
+}
+
 export type RecordingStatus = 'idle' | 'countdown' | 'recording' | 'paused' | 'processing'
 
 export interface TimelineSegment {

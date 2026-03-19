@@ -34,6 +34,7 @@ function App() {
   const [playheadMs, setPlayheadMs] = useState(0)
   const [exportProgress, setExportProgress] = useState<number | null>(null)
   const [exportDone, setExportDone] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
   const { playbackUrl, clearPlayback, setPlaybackFromChunks } = usePlayback()
@@ -112,12 +113,21 @@ function App() {
     if (typeof window.kino?.onExportProgress !== 'function') return
     const off = window.kino.onExportProgress((progress) => {
       setExportProgress(progress)
-      if (progress >= 1) {
-        setTimeout(() => {
-          setExportProgress(null)
-          setExportDone(true)
-        }, 400)
+    })
+    return off
+  }, [])
+
+  useEffect(() => {
+    if (typeof window.kino?.onExportDone !== 'function') return
+    const off = window.kino.onExportDone((result) => {
+      setExportProgress(null)
+      if (result.error) {
+        setExportDone(false)
+        setExportError(result.error)
+        return
       }
+      setExportError(null)
+      setExportDone(!!result.path)
     })
     return off
   }, [])
@@ -129,6 +139,7 @@ function App() {
     setSelectedSegmentId(null)
     setPlayheadMs(0)
     setExportDone(false)
+    setExportError(null)
     setExportProgress(null)
 
     await startRecording()
@@ -201,21 +212,26 @@ function App() {
     if (exportProgress !== null) return
 
     setExportDone(false)
+    setExportError(null)
     setExportProgress(0)
 
     const chunks = getChunks()
-    if (chunks.length > 0) {
-      try {
-        const blob = new Blob(chunks, { type: 'video/webm' })
-        const data = await blob.arrayBuffer()
-        window.kino.startExport({ data, fps: settings.fps, resolution: settings.resolution })
-      } catch {
-        window.kino.startExport({ fps: settings.fps, resolution: settings.resolution })
-      }
+    if (chunks.length === 0) {
+      setExportProgress(null)
+      setExportError('No recording data available to export.')
       return
     }
 
-    window.kino.startExport({ fps: settings.fps, resolution: settings.resolution })
+    try {
+      const blob = new Blob(chunks, { type: 'video/webm' })
+      const ab = await blob.arrayBuffer()
+      await window.kino.startExport({ data: ab, fps: settings.fps, resolution: settings.resolution })
+    } catch (error) {
+      console.error('[export] failed to start', error)
+      setExportProgress(null)
+      setExportDone(false)
+      setExportError('Failed to send recording data to export pipeline.')
+    }
   }, [exportProgress, getChunks, settings.fps, settings.resolution])
 
   return (
@@ -352,6 +368,8 @@ function App() {
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
               {fmtMs(recordDuration)}
             </span>
+          ) : exportError ? (
+            <span className="text-rose-400">{exportError}</span>
           ) : exportProgress !== null ? (
             <span className="text-blue-400">Exporting… {Math.round(exportProgress * 100)}%</span>
           ) : exportDone ? (

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { Channels } from '../shared/channels'
-import type { CursorFrame } from '../shared/types'
+import type { CursorFrame, ExportDoneResult, ExportStartConfig } from '../shared/types'
 
 contextBridge.exposeInMainWorld('kino', {
   // Request/response
@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('kino', {
   pauseRecording: () => ipcRenderer.send(Channels.RECORDING_PAUSE),
 
   // Export
-  startExport: (config: unknown) => ipcRenderer.send(Channels.EXPORT_START, config),
+  startExport: (config: ExportStartConfig) => ipcRenderer.invoke(Channels.EXPORT_START, config) as Promise<ExportDoneResult>,
 
   // Events from main
   onRecordingStatus: (cb: (status: string) => void) => {
@@ -28,8 +28,8 @@ contextBridge.exposeInMainWorld('kino', {
     return () => ipcRenderer.removeListener(Channels.EXPORT_PROGRESS, handler)
   },
 
-  onExportDone: (cb: (result: { path: string | null; error?: string }) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, r: { path: string | null; error?: string }) => cb(r)
+  onExportDone: (cb: (result: ExportDoneResult) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, r: ExportDoneResult) => cb(r)
     ipcRenderer.on(Channels.EXPORT_DONE, handler)
     return () => ipcRenderer.removeListener(Channels.EXPORT_DONE, handler)
   },

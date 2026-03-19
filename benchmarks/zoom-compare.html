@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kino — Zoom Parameter Comparison</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+  .header {
+    text-align: center;
+    padding: 28px 20px 12px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .header p {
+    font-size: 13px;
+    color: #888;
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 0 18px;
+  }
+  .controls button {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #ccc;
+    padding: 7px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .controls button:hover { background: #252525; border-color: #555; color: #fff; }
+  .controls button.active { background: #2a2a4a; border-color: #6366f1; color: #a5b4fc; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 0 24px 32px;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+  .cell {
+    background: #111;
+    border-radius: 10px;
+    border: 1px solid #1e1e1e;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .cell:hover { border-color: #6366f1; }
+  .cell canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    cursor: none;
+  }
+  .cell-info {
+    padding: 10px 14px;
+    border-top: 1px solid #1a1a1a;
+  }
+  .cell-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cell-label .tag {
+    font-size: 10px;
+    font-weight: 500;
+    background: #6366f1;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .cell-params {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.6;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .cell-params span { color: #888; }
+  .zoom-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #a5b4fc;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 2px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .state-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #888;
+    font-size: 10px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 2px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+  }
+  .canvas-wrap { position: relative; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Zoom Parameter Comparison</h1>
+  <p>Move your mouse over the videos to see how each zoom tuning responds. All 6 canvases track the same cursor position — only the spring and dwell parameters differ.</p>
+</div>
+
+<div class="controls">
+  <button id="btnPlayAll">Play All</button>
+  <button id="btnPauseAll">Pause All</button>
+  <button id="btnDemo1" class="active">demo1.mp4</button>
+  <button id="btnDemo2">demo2.mp4</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<!-- Hidden video elements -->
+<video id="video1" src="demo1.mp4" loop muted playsinline preload="auto" style="display:none"></video>
+<video id="video2" src="demo2.mp4" loop muted playsinline preload="auto" style="display:none"></video>
+
+<script>
+// ─── SpringCamera (ported from spring-camera.ts) ───
+class SpringCamera {
+  constructor(stiffness = 120, damping = 12) {
+    this.stiffness = stiffness;
+    this.damping = damping;
+    this.x = 0; this.y = 0; this.zoom = 1.0;
+    this.vx = 0; this.vy = 0; this.vZoom = 0;
+  }
+  update(tx, ty, tz, dt) {
+    const ax = this.stiffness * (tx - this.x) - this.damping * this.vx;
+    const ay = this.stiffness * (ty - this.y) - this.damping * this.vy;
+    this.vx += ax * dt;
+    this.vy += ay * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    const az = this.stiffness * (tz - this.zoom) - this.damping * this.vZoom;
+    this.vZoom += az * dt;
+    this.zoom += this.vZoom * dt;
+  }
+}
+
+// ─── ZoomController (ported from zoom-controller.ts) ───
+class ZoomController {
+  constructor(dwellThreshold = 400, speedThreshold = 30, cooldown = 300) {
+    this.dwellThreshold = dwellThreshold;
+    this.speedThreshold = speedThreshold;
+    this.cooldown = cooldown;
+    this.dwellMs = 0;
+    this.zoomCooldownMs = 0;
+    this.state = 'IDLE';
+  }
+  update({ autoZoomLevel, speed, dtMs, currentZoom }) {
+    if (speed > this.speedThreshold) {
+      this.dwellMs = 0;
+      this.zoomCooldownMs = this.cooldown;
+    } else {
+      this.dwellMs += dtMs;
+    }
+    if (this.dwellMs > this.dwellThreshold) {
+      this._setState('ZOOM_IN');
+      return autoZoomLevel;
+    }
+    if (this.zoomCooldownMs > 0) {
+      this.zoomCooldownMs -= dtMs;
+      this._setState('HOLD');
+      return currentZoom;
+    }
+    this._setState('ZOOM_OUT');
+    return 1;
+  }
+  _setState(next) {
+    if (this.state !== next) this.state = next;
+  }
+}
+
+// ─── Variations ───
+const variations = [
+  { id: 'A', label: 'Gentle Cinematic',  dwell: 600,  speedThresh: 40, cooldown: 500, stiffness: 30,  damping: 8,  desc: 'Slow zoom in, soft' },
+  { id: 'B', label: 'Screen Studio-ish', dwell: 800,  speedThresh: 50, cooldown: 400, stiffness: 40,  damping: 10, desc: 'Balanced, polished' },
+  { id: 'C', label: 'Ultra Slow',        dwell: 1200, speedThresh: 60, cooldown: 600, stiffness: 20,  damping: 6,  desc: 'Very deliberate' },
+  { id: 'D', label: 'Current (Snappy)',   dwell: 400,  speedThresh: 30, cooldown: 300, stiffness: 120, damping: 12, desc: "Today's defaults" },
+  { id: 'E', label: 'Smooth Damped',      dwell: 800,  speedThresh: 45, cooldown: 500, stiffness: 35,  damping: 14, desc: 'Heavy damping' },
+  { id: 'F', label: 'Quick but Smooth',   dwell: 500,  speedThresh: 35, cooldown: 350, stiffness: 50,  damping: 10, desc: 'Faster response, still smooth' },
+];
+
+const AUTO_ZOOM_LEVEL = 2.0;
+
+// ─── Shared state ───
+const cursor = { x: 0.5, y: 0.5 };
+let activeVideo = document.getElementById('video1');
+
+// ─── Build grid ───
+const grid = document.getElementById('grid');
+const cells = [];
+
+for (const v of variations) {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'canvas-wrap';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 640;
+  canvas.height = 360;
+  wrap.appendChild(canvas);
+
+  const zoomBadge = document.createElement('div');
+  zoomBadge.className = 'zoom-badge';
+  zoomBadge.textContent = '1.00x';
+  wrap.appendChild(zoomBadge);
+
+  const stateBadge = document.createElement('div');
+  stateBadge.className = 'state-badge';
+  stateBadge.textContent = 'IDLE';
+  wrap.appendChild(stateBadge);
+
+  cell.appendChild(wrap);
+
+  const info = document.createElement('div');
+  info.className = 'cell-info';
+  info.innerHTML = `
+    <div class="cell-label"><span class="tag">${v.id}</span> ${v.label}</div>
+    <div class="cell-params">
+      <span>dwell</span> ${v.dwell}ms &nbsp;
+      <span>speed</span> ${v.speedThresh} &nbsp;
+      <span>cooldown</span> ${v.cooldown}ms &nbsp;
+      <span>stiffness</span> ${v.stiffness} &nbsp;
+      <span>damping</span> ${v.damping}
+    </div>
+  `;
+  cell.appendChild(info);
+  grid.appendChild(cell);
+
+  cells.push({
+    canvas,
+    ctx: canvas.getContext('2d'),
+    camera: new SpringCamera(v.stiffness, v.damping),
+    zoom: new ZoomController(v.dwell, v.speedThresh, v.cooldown),
+    zoomBadge,
+    stateBadge,
+    variation: v,
+    prevCursor: { x: 0.5, y: 0.5 },
+  });
+}
+
+// ─── Mouse tracking ───
+document.addEventListener('mousemove', (e) => {
+  // Normalize to the grid area — find any canvas and map
+  const gridRect = grid.getBoundingClientRect();
+  // We want a 0-1 value that's consistent across all canvases
+  // Use the grid bounds as the reference area
+  cursor.x = Math.max(0, Math.min(1, (e.clientX - gridRect.left) / gridRect.width));
+  cursor.y = Math.max(0, Math.min(1, (e.clientY - gridRect.top) / gridRect.height));
+});
+
+// ─── Controls ───
+document.getElementById('btnPlayAll').addEventListener('click', () => {
+  activeVideo.play();
+});
+document.getElementById('btnPauseAll').addEventListener('click', () => {
+  activeVideo.pause();
+});
+document.getElementById('btnDemo1').addEventListener('click', () => {
+  switchVideo('video1');
+});
+document.getElementById('btnDemo2').addEventListener('click', () => {
+  switchVideo('video2');
+});
+
+function switchVideo(id) {
+  activeVideo.pause();
+  activeVideo = document.getElementById(id);
+  activeVideo.currentTime = 0;
+  activeVideo.play();
+  document.getElementById('btnDemo1').classList.toggle('active', id === 'video1');
+  document.getElementById('btnDemo2').classList.toggle('active', id === 'video2');
+}
+
+// ─── Render loop ───
+let lastFrameMs = performance.now();
+
+function frame(now) {
+  const dt = Math.min((now - lastFrameMs) / 1000, 0.1);
+  lastFrameMs = now;
+
+  for (const cell of cells) {
+    const { canvas, ctx, camera, zoom, zoomBadge, stateBadge, prevCursor } = cell;
+    const vw = canvas.width;
+    const vh = canvas.height;
+
+    // Compute cursor speed
+    const dx = (cursor.x - prevCursor.x) * vw;
+    const dy = (cursor.y - prevCursor.y) * vh;
+    const speed = dt > 0 ? Math.sqrt(dx * dx + dy * dy) / dt : 0;
+    cell.prevCursor = { x: cursor.x, y: cursor.y };
+
+    // Zoom state machine
+    const targetZoom = zoom.update({
+      autoZoomLevel: AUTO_ZOOM_LEVEL,
+      speed,
+      dtMs: dt * 1000,
+      currentZoom: camera.zoom,
+    });
+
+    // Spring camera target
+    const tx = (cursor.x - 0.5) * vw;
+    const ty = (cursor.y - 0.5) * vh;
+    camera.update(tx, ty, targetZoom, dt);
+
+    // ─ Draw ─
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, vw, vh);
+
+    if (activeVideo.readyState >= 2) {
+      ctx.save();
+      ctx.translate(vw / 2, vh / 2);
+      ctx.scale(camera.zoom, camera.zoom);
+      ctx.translate(-vw / 2 - camera.x, -vh / 2 - camera.y);
+      ctx.drawImage(activeVideo, 0, 0, vw, vh);
+      ctx.restore();
+    }
+
+    // Cursor dot
+    const cx = cursor.x * vw;
+    const cy = cursor.y * vh;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.restore();
+
+    // Update badges
+    zoomBadge.textContent = camera.zoom.toFixed(2) + 'x';
+    stateBadge.textContent = zoom.state;
+
+    // Color state badge
+    const stateColors = { IDLE: '#888', ZOOM_IN: '#4ade80', HOLD: '#facc15', ZOOM_OUT: '#f87171' };
+    stateBadge.style.color = stateColors[zoom.state] || '#888';
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// Start
+activeVideo.play().catch(() => {});
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

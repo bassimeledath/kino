@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { CursorFrame } from '../shared/types'
+import type { CursorFrame, ExportDoneResult, ExportStartConfig } from '../shared/types'
 
 interface KinoAPI {
   getSources: () => Promise<Array<{
@@ -13,10 +13,10 @@ interface KinoAPI {
   startRecording: (config: unknown) => void
   stopRecording: () => void
   pauseRecording: () => void
-  startExport: (config: unknown) => void
+  startExport: (config: ExportStartConfig) => Promise<ExportDoneResult>
   onRecordingStatus: (cb: (status: string) => void) => () => void
   onExportProgress: (cb: (progress: number) => void) => () => void
-  onExportDone: (cb: (result: { path: string | null; error?: string }) => void) => () => void
+  onExportDone: (cb: (result: ExportDoneResult) => void) => () => void
   onCursorData: (cb: (frame: CursorFrame) => void) => () => void
 }
 

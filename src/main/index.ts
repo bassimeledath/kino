@@ -1,10 +1,10 @@
 import { app, BrowserWindow, ipcMain, screen, desktopCapturer, dialog } from 'electron'
 import { join } from 'path'
 import { spawn } from 'child_process'
-import { writeFileSync, mkdtempSync, mkdirSync } from 'fs'
+import { writeFileSync, mkdtempSync, mkdirSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { Channels } from '../shared/channels'
-import type { CursorFrame } from '../shared/types'
+import type { CursorFrame, ExportDoneResult, ExportStartConfig } from '../shared/types'
 
 // Allow CDP WebSocket connections from any origin (required for benchmark tooling)
 app.commandLine.appendSwitch('remote-allow-origins', '*')
@@ -31,6 +31,19 @@ let clickProcess: ReturnType<typeof spawn> | null = null
 let isMouseDown = false
 let recordingStartTime = 0
 const cursorLog: CursorFrame[] = []
+
+function exportDataToBuffer(raw: unknown): Buffer | null {
+  if (!raw) return null
+  if (Buffer.isBuffer(raw)) return raw
+  if (raw instanceof ArrayBuffer) return Buffer.from(raw)
+  if (raw instanceof Uint8Array) return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength)
+  if (ArrayBuffer.isView(raw)) {
+    const view = raw as ArrayBufferView
+    return Buffer.from(view.buffer, view.byteOffset, view.byteLength)
+  }
+  if (Array.isArray(raw)) return Buffer.from(raw)
+  return null
+}
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -148,39 +161,48 @@ app.whenReady().then(() => {
   })
 
   // IPC: Export — transcode WebM to MP4 via ffmpeg-static
-  ipcMain.on(Channels.EXPORT_START, async (_event, config) => {
-    // If no video data was sent, just do a mock progress animation
-    if (!config?.data || !config.data.byteLength) {
-      let p = 0
-      const iv = setInterval(() => {
-        p = Math.min(p + 0.12, 1)
-        mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, p)
-        if (p >= 1) {
-          clearInterval(iv)
-          mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null })
-        }
-      }, 200)
-      return
+  ipcMain.handle(Channels.EXPORT_START, async (_event, config: ExportStartConfig): Promise<ExportDoneResult> => {
+    const videoBuffer = exportDataToBuffer(config?.data)
+    const dataLen = videoBuffer?.byteLength ?? 0
+    console.log('[export] start', {
+      hasData: !!videoBuffer,
+      dataLen,
+      dataType: config?.data ? Object.prototype.toString.call(config.data) : 'undefined',
+      fps: config?.fps ?? 30,
+      resolution: config?.resolution ?? 'native',
+    })
+
+    if (!videoBuffer || dataLen === 0) {
+      const error = 'No export data received in main process.'
+      console.error('[export] no data available; aborting')
+      mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
+      mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error })
+      return { path: null, error }
     }
 
     // Save WebM blob to temp file
     const tmpDir = mkdtempSync(join(tmpdir(), 'kino-export-'))
     const inputPath = join(tmpDir, 'input.webm')
-    writeFileSync(inputPath, Buffer.from(config.data))
+    writeFileSync(inputPath, videoBuffer)
+    console.log('[export] temp input written', { inputPath, bytes: dataLen })
 
     // Ask user for save path
+    mainWindow?.show()
+    mainWindow?.focus()
     const saveResult = await dialog.showSaveDialog(mainWindow!, {
       title: 'Export as MP4',
       defaultPath: 'kino-recording.mp4',
       filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
     })
     if (saveResult.canceled || !saveResult.filePath) {
+      console.log('[export] save dialog canceled')
       mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
       mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null })
-      return
+      return { path: null }
     }
 
     const outputPath = saveResult.filePath
+    console.log('[export] output selected', { outputPath })
 
     // Resolve resolution
     const resMap: Record<string, string> = {
@@ -188,26 +210,30 @@ app.whenReady().then(() => {
       '1080p': '1920:1080',
       '4k': '3840:2160',
     }
-    const vf = resMap[config.resolution] ? `scale=${resMap[config.resolution]}:force_original_aspect_ratio=decrease,pad=${resMap[config.resolution]}:-1:-1:color=black` : 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
+    const targetScale = resMap[config.resolution ?? 'native']
+    const vf = targetScale
+      ? `scale=${targetScale}:force_original_aspect_ratio=decrease,pad=${targetScale}:-1:-1:color=black`
+      : 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
     const fps = config.fps || 30
 
     // Load ffmpeg-static path
-    let ffmpegBin: string
+    let ffmpegBin: string | null = null
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      ffmpegBin = require('ffmpeg-static') as string
-    } catch {
-      // ffmpeg not available — do mock progress
-      let p = 0
-      const iv = setInterval(() => {
-        p = Math.min(p + 0.1, 1)
-        mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, p)
-        if (p >= 1) {
-          clearInterval(iv)
-          mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null })
-        }
-      }, 200)
-      return
+      ffmpegBin = require('ffmpeg-static') as string | null
+    } catch (error) {
+      console.error('[export] failed to resolve ffmpeg-static', error)
+    }
+    console.log('[export] ffmpeg resolved', { ffmpegBin })
+
+    if (!ffmpegBin || !existsSync(ffmpegBin)) {
+      const error = ffmpegBin
+        ? `ffmpeg binary not found at ${ffmpegBin}`
+        : 'ffmpeg-static not available in main process'
+      console.error('[export] ffmpeg unavailable', { error })
+      mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
+      mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error })
+      return { path: null, error }
     }
 
     const args = [
@@ -224,28 +250,46 @@ app.whenReady().then(() => {
       outputPath,
     ]
 
-    const proc = spawn(ffmpegBin, args)
+    return await new Promise<ExportDoneResult>((resolve) => {
+      const proc = spawn(ffmpegBin, args)
+      let stderrTail = ''
 
-    proc.stderr.on('data', (chunk: Buffer) => {
-      const text = chunk.toString()
-      // Parse progress from ffmpeg output "time=HH:MM:SS.ss"
-      const match = text.match(/time=(\d+):(\d+):(\d+\.\d+)/)
-      if (match) {
-        const secs = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3])
-        // We don't know total duration easily, so use a soft estimate
-        const progress = Math.min(secs / 10, 0.95)
-        mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, progress)
-      }
-    })
+      proc.stderr.on('data', (chunk: Buffer) => {
+        const text = chunk.toString()
+        stderrTail = (stderrTail + text).slice(-5000)
+        // Parse progress from ffmpeg output "time=HH:MM:SS.ss"
+        const match = text.match(/time=(\d+):(\d+):(\d+\.\d+)/)
+        if (match) {
+          const secs = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseFloat(match[3])
+          // We don't know total duration easily, so use a soft estimate
+          const progress = Math.min(secs / 10, 0.95)
+          mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, progress)
+        }
+      })
 
-    proc.on('close', (code) => {
-      if (code === 0) {
+      proc.on('error', (error) => {
+        const message = `ffmpeg spawn error: ${error.message}`
+        console.error('[export] ffmpeg spawn error', error)
         mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-        mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: outputPath })
-      } else {
+        mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error: message })
+        resolve({ path: null, error: message })
+      })
+
+      proc.on('close', (code) => {
+        console.log('[export] ffmpeg closed', { code })
+        if (code === 0) {
+          mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
+          mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: outputPath })
+          resolve({ path: outputPath })
+          return
+        }
+
+        const message = `ffmpeg exit ${code ?? 'unknown'}${stderrTail ? `: ${stderrTail}` : ''}`
+        console.error('[export] ffmpeg failed', { code, stderrTail })
         mainWindow?.webContents.send(Channels.EXPORT_PROGRESS, 1)
-        mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error: `ffmpeg exit ${code}` })
-      }
+        mainWindow?.webContents.send(Channels.EXPORT_DONE, { path: null, error: message })
+        resolve({ path: null, error: message })
+      })
     })
   })
 
