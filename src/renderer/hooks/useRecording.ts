@@ -60,7 +60,6 @@ export function useRecording(input: UseRecordingInput) {
     zoomEventsRef.current = []
     setRecordDuration(0)
     startMsRef.current = Date.now()
-    screenDimsRef.current = { width: window.screen.width || 1920, height: window.screen.height || 1080 }
 
     console.log('[recording] started capture...')
 
@@ -80,14 +79,20 @@ export function useRecording(input: UseRecordingInput) {
         throw new Error('no capture source available')
       }
 
+      // Use actual screen resolution (Retina-aware)
+      const dpr = window.devicePixelRatio || 1
+      const screenW = Math.round((window.screen.width || 1920) * dpr)
+      const screenH = Math.round((window.screen.height || 1080) * dpr)
+      screenDimsRef.current = { width: screenW, height: screenH }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           mandatory: {
             chromeMediaSource: 'desktop',
             chromeMediaSourceId: src.id,
-            maxWidth: 1920,
-            maxHeight: 1080,
+            maxWidth: screenW,
+            maxHeight: screenH,
             maxFrameRate: settings.fps,
           },
         } as MediaTrackConstraints,

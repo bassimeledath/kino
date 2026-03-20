@@ -78,9 +78,10 @@ export function VideoPreview(props: VideoPreviewProps) {
         <div className="relative mb-6 w-full max-w-2xl">
           <canvas
             ref={canvasRef}
-            width={800}
-            height={450}
+            width={Math.round((window.screen.width || 1920) * (window.devicePixelRatio || 1))}
+            height={Math.round((window.screen.height || 1080) * (window.devicePixelRatio || 1))}
             className="w-full rounded-2xl border border-zinc-800 shadow-2xl"
+            style={{ aspectRatio: `${window.screen.width || 1920} / ${window.screen.height || 1080}` }}
           />
           <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-red-600/90 px-3 py-1.5 text-xs font-mono backdrop-blur-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
