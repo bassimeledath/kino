@@ -21,7 +21,7 @@ export class ZoomController {
   private timeSinceLastClickMs = 0
 
   private readonly idleSpeedThreshold = 15
-  private readonly clickGroupGapMs = 5000   // idle timeout: zoom out after 5s of no clicks AND no mouse movement
+  private readonly clickGroupGapMs = 3000   // idle timeout: zoom out after 3s of no clicks (mouse movement no longer extends)
   private readonly clickHoldMinMs = 3000    // minimum hold after last click in group
   private readonly cooldownAfterZoomMs = 1500
 
@@ -78,12 +78,10 @@ export class ZoomController {
       case 'CLICK_HOLD': {
         this.holdMs += dtMs
         this.timeSinceLastClickMs += dtMs
-        // Mouse activity extends the zoom session — Screen Studio stays zoomed as long
-        // as the cursor is moving (user navigating to next click target). Only start the
-        // zoom-out countdown when both clicks AND mouse movement have stopped.
-        if (speed > this.idleSpeedThreshold) {
-          this.timeSinceLastClickMs = 0
-        }
+        // Only clicks extend the zoom session (handled above in the click handler).
+        // Mouse movement no longer resets the timer — this gives Screen Studio's
+        // "reads your mind" zoom-out behavior where it zooms out as soon as cursor
+        // stops clicking, even if still moving.
         if (this.timeSinceLastClickMs >= this.clickGroupGapMs && this.holdMs >= this.clickHoldMinMs) {
           this.setState('CLICK_ZOOM_OUT')
           return 1

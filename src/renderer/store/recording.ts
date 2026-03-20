@@ -31,7 +31,7 @@ const defaultSettings: ProjectSettings = {
   mouseSpringDamping: 70,
   mouseSpringMass: 3,
   zoomSpringStiffness: 700,
-  zoomSpringDamping: 30,
+  zoomSpringDamping: 45,
   zoomSpringMass: 1,
   snapToEdgesRatio: 0.25,
 }

@@ -192,9 +192,41 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     }
 
     // Camera target: only pan when zoomed in
+    // Dead zone: don't reposition camera for small cursor movements within the
+    // current viewport. Only pan when cursor approaches the edge of the visible
+    // area (within 30% of viewport edge). This matches Screen Studio's stable
+    // camera behavior — the camera stays put until the cursor forces it to move.
     const shouldPan = targetZoom > 1.05
-    let tx = shouldPan ? (smoothX - 0.5) * videoW : 0
-    let ty = shouldPan ? (smoothY - 0.5) * videoH : 0
+    const rawTx = shouldPan ? (smoothX - 0.5) * videoW : 0
+    const rawTy = shouldPan ? (smoothY - 0.5) * videoH : 0
+
+    let tx: number
+    let ty: number
+    if (shouldPan) {
+      const effectiveZoom = Math.max(camera.zoom, 1.01)
+      // Half-size of the visible viewport in video coords
+      const halfViewW = videoW / (2 * effectiveZoom)
+      const halfViewH = videoH / (2 * effectiveZoom)
+      // Cursor position in video-space relative to current camera center
+      const cursorVideoX = (smoothX - 0.5) * videoW - camera.x
+      const cursorVideoY = (smoothY - 0.5) * videoH - camera.y
+      // Dead zone: 70% of the viewport half-size (pan only when cursor is in outer 30%)
+      const deadZoneX = halfViewW * 0.7
+      const deadZoneY = halfViewH * 0.7
+
+      if (Math.abs(cursorVideoX) > deadZoneX || Math.abs(cursorVideoY) > deadZoneY) {
+        // Cursor is near viewport edge — pan to re-center
+        tx = rawTx
+        ty = rawTy
+      } else {
+        // Cursor is within dead zone — keep camera where it is
+        tx = camera.x
+        ty = camera.y
+      }
+    } else {
+      tx = 0
+      ty = 0
+    }
 
     // snapToEdgesRatio: clamp camera target so viewport stays within recording bounds
     // Screen Studio uses 0.25 — keeps 25% margin from edges, preventing "cursor going far left"
