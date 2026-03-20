@@ -23,6 +23,13 @@ export interface ProjectSettings {
   screenSpringStiffness: number
   screenSpringDamping: number
   screenSpringMass: number
+  mouseSpringStiffness: number
+  mouseSpringDamping: number
+  mouseSpringMass: number
+  zoomSpringStiffness: number
+  zoomSpringDamping: number
+  zoomSpringMass: number
+  snapToEdgesRatio: number
 }
 
 export interface ExportStartConfig {
@@ -50,4 +57,10 @@ export interface TimelineSegment {
   deleted: boolean
   speed: number
   zoomEnabled: boolean
+}
+
+export interface ZoomEvent {
+  startMs: number
+  endMs: number
+  type: 'click' | 'dwell'
 }

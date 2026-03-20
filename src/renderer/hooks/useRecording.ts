@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ProjectSettings, RecordingStatus } from '../../shared/types'
+import type { ProjectSettings, RecordingStatus, ZoomEvent } from '../../shared/types'
 
 interface UseRecordingInput {
   settings: ProjectSettings
   setStatus: (status: RecordingStatus) => void
 }
 
+export interface RecordingMetadata {
+  codec: string
+  fileSize: number // bytes
+  screenWidth: number
+  screenHeight: number
+}
+
 export interface StopRecordingResult {
   duration: number
   chunks: Blob[]
+  zoomEvents: ZoomEvent[]
+  metadata: RecordingMetadata
 }
 
 export function useRecording(input: UseRecordingInput) {
@@ -27,6 +36,9 @@ export function useRecording(input: UseRecordingInput) {
   const startMsRef = useRef(0)
   const recordDurationRef = useRef(0)
   const countdownAbortRef = useRef(false)
+  const zoomEventsRef = useRef<ZoomEvent[]>([])
+  const codecRef = useRef('video/webm')
+  const screenDimsRef = useRef({ width: 1920, height: 1080 })
 
   useEffect(() => {
     recordDurationRef.current = recordDuration
@@ -45,8 +57,10 @@ export function useRecording(input: UseRecordingInput) {
     window.kino.startRecording({})
 
     chunksRef.current = []
+    zoomEventsRef.current = []
     setRecordDuration(0)
     startMsRef.current = Date.now()
+    screenDimsRef.current = { width: window.screen.width || 1920, height: window.screen.height || 1080 }
 
     console.log('[recording] started capture...')
 
@@ -109,6 +123,7 @@ export function useRecording(input: UseRecordingInput) {
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
         ? 'video/webm;codecs=vp9'
         : 'video/webm'
+      codecRef.current = mimeType
 
       const recorder = new MediaRecorder(canvasStream, { mimeType })
       console.log('[recording] MediaRecorder using canvas stream')
@@ -189,9 +204,19 @@ export function useRecording(input: UseRecordingInput) {
     const duration = Math.max(recordDurationRef.current, 1000)
     setRecordDuration(duration)
 
+    const chunks = [...chunksRef.current]
+    const fileSize = chunks.reduce((sum, c) => sum + c.size, 0)
+
     return {
       duration,
-      chunks: [...chunksRef.current],
+      chunks,
+      zoomEvents: [...zoomEventsRef.current],
+      metadata: {
+        codec: codecRef.current,
+        fileSize,
+        screenWidth: screenDimsRef.current.width,
+        screenHeight: screenDimsRef.current.height,
+      },
     }
   }, [clearDurationTimer, setStatus])
 
@@ -216,5 +241,7 @@ export function useRecording(input: UseRecordingInput) {
     startRecording,
     stopRecording,
     getChunks,
+    zoomEventsRef,
+    startMsRef,
   }
 }

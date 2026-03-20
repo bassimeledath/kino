@@ -185,10 +185,13 @@ app.whenReady().then(() => {
     }
     isMouseDown = false
 
-    // Save cursor log to benchmarks/cursor-log.json
+    // Save cursor log to benchmarks/ with timestamp (and latest symlink)
     const benchDir = join(__dirname, '../../benchmarks')
     mkdirSync(benchDir, { recursive: true })
-    writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog))
+    const ts = new Date().toISOString().replace(/[:.]/g, '-')
+    const timestampedPath = join(benchDir, `cursor-log-${ts}.json`)
+    writeFileSync(timestampedPath, JSON.stringify(cursorLog))
+    writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog)) // keep latest too
 
     sendRecordingStatus('idle')
   })

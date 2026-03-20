@@ -21,9 +21,9 @@ export class ZoomController {
   private timeSinceLastClickMs = 0
 
   private readonly idleSpeedThreshold = 15
-  private readonly clickGroupGapMs = 2000   // clicks within 2s extend the zoom session
-  private readonly clickHoldMinMs = 2000    // minimum hold after last click in group
-  private readonly cooldownAfterZoomMs = 500
+  private readonly clickGroupGapMs = 5000   // idle timeout: zoom out after 5s of no clicks AND no mouse movement
+  private readonly clickHoldMinMs = 3000    // minimum hold after last click in group
+  private readonly cooldownAfterZoomMs = 1500
 
   update(input: ZoomUpdateInput): number {
     const { autoZoomEnabled, autoZoomLevel, dwellZoomLevel, dwellThresholdMs, speed, dtMs, clicked } = input
@@ -35,11 +35,13 @@ export class ZoomController {
 
     // Click always takes priority — groups rapid clicks into a single zoom session
     if (clicked) {
-      if (this.state === 'CLICK_HOLD') {
-        // Subsequent click during hold — reset hold timer (extend the group)
+      if (this.state === 'CLICK_HOLD' || this.state === 'CLICK_ZOOM_OUT') {
+        // Click during hold or zoom-out — cancel zoom-out, stay zoomed in
+        this.setState('CLICK_HOLD')
         this.holdMs = 0
         this.timeSinceLastClickMs = 0
       } else {
+        // New zoom session (from IDLE, cooldown, or dwell states)
         this.setState('CLICK_ZOOM_IN')
         this.holdMs = 0
         this.cooldownMs = 0
@@ -76,7 +78,12 @@ export class ZoomController {
       case 'CLICK_HOLD': {
         this.holdMs += dtMs
         this.timeSinceLastClickMs += dtMs
-        // Only zoom out after no clicks for clickGroupGapMs AND minimum hold time elapsed
+        // Mouse activity extends the zoom session — Screen Studio stays zoomed as long
+        // as the cursor is moving (user navigating to next click target). Only start the
+        // zoom-out countdown when both clicks AND mouse movement have stopped.
+        if (speed > this.idleSpeedThreshold) {
+          this.timeSinceLastClickMs = 0
+        }
         if (this.timeSinceLastClickMs >= this.clickGroupGapMs && this.holdMs >= this.clickHoldMinMs) {
           this.setState('CLICK_ZOOM_OUT')
           return 1
@@ -111,6 +118,10 @@ export class ZoomController {
         return 1
       }
     }
+  }
+
+  getState(): ZoomState {
+    return this.state
   }
 
   private setState(next: ZoomState) {

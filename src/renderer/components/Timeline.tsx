@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { TimelineSegment } from '../../shared/types'
+import type { TimelineSegment, ZoomEvent } from '../../shared/types'
 import { fmtMs } from '../utils/format'
 
 interface TimelineProps {
@@ -8,6 +8,7 @@ interface TimelineProps {
   playheadMs: number
   selectedSegmentId: string | null
   segments: TimelineSegment[]
+  zoomEvents: ZoomEvent[]
   onSetPlayheadMs: (value: number) => void
   onToggleSegmentSelected: (id: string) => void
   onSplit: () => void
@@ -22,6 +23,7 @@ export function Timeline(props: TimelineProps) {
     playheadMs,
     selectedSegmentId,
     segments,
+    zoomEvents,
     onSetPlayheadMs,
     onToggleSegmentSelected,
     onSplit,
@@ -47,7 +49,7 @@ export function Timeline(props: TimelineProps) {
     1,
   )
 
-  // Map absolute time → visual fraction (0..1) in collapsed layout
+  // Map absolute time -> visual fraction (0..1) in collapsed layout
   function absToVisualFrac(absMs: number): number {
     let visualMs = 0
     for (const seg of visibleSegments) {
@@ -62,7 +64,7 @@ export function Timeline(props: TimelineProps) {
     return visualMs / visualDuration
   }
 
-  // Map visual fraction (0..1) → absolute time
+  // Map visual fraction (0..1) -> absolute time
   function visualFracToAbs(frac: number): number {
     let targetMs = frac * visualDuration
     for (const seg of visibleSegments) {
@@ -109,45 +111,87 @@ export function Timeline(props: TimelineProps) {
 
   if (!hasRecorded) return null
 
+  const playheadFrac = absToVisualFrac(playheadMs) * 100
+
   return (
     <div
       data-testid="timeline"
-      className="border-t border-zinc-800 bg-zinc-900 flex-shrink-0"
-      style={{ height: '9.5rem' }}
+      className="border-t border-zinc-800/60 bg-zinc-900/95 flex-shrink-0"
+      style={{ height: '10.5rem' }}
     >
       <div className="px-4 py-2.5 h-full flex flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-zinc-400">Timeline</span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-zinc-500">{fmtMs(playheadMs)}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-semibold text-zinc-400 tracking-wide uppercase">Timeline</span>
+            <span className="text-[11px] font-mono text-zinc-500 tabular-nums">{fmtMs(playheadMs)} / {fmtMs(visualDuration)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={onSplit}
-              className="text-xs px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors border border-zinc-700"
+              className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all border border-zinc-700/50"
               title="Split at playhead (S key)"
             >
-              Split
+              <span className="flex items-center gap-1.5">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <line x1="5" y1="0" x2="5" y2="10" />
+                  <line x1="2" y1="3" x2="5" y2="0" />
+                  <line x1="8" y1="3" x2="5" y2="0" />
+                </svg>
+                Split
+              </span>
             </button>
             <button
               onClick={onDeleteSegment}
               disabled={!selectedSegmentId}
-              className="text-xs px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors border border-zinc-700 disabled:opacity-40"
+              className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all border border-zinc-700/50 disabled:opacity-30 disabled:pointer-events-none"
               title="Delete selected segment (Delete key)"
             >
               Delete
             </button>
-            <span className="text-[10px] text-zinc-600">S=split · Del=remove</span>
+            <span className="text-[10px] text-zinc-700 ml-1">S / Del</span>
           </div>
         </div>
 
+        {/* Zoom events lane */}
+        {zoomEvents.length > 0 && (
+          <div className="relative h-3 mb-1 rounded-sm overflow-hidden bg-zinc-800/40">
+            {zoomEvents.map((evt, i) => {
+              const leftFrac = absToVisualFrac(evt.startMs) * 100
+              const rightFrac = absToVisualFrac(evt.endMs) * 100
+              const width = Math.max(rightFrac - leftFrac, 0.3)
+              const isClick = evt.type === 'click'
+              return (
+                <div
+                  key={i}
+                  className={`absolute inset-y-0 rounded-sm ${
+                    isClick
+                      ? 'bg-cyan-500/40 border-b-2 border-cyan-400/60'
+                      : 'bg-violet-500/35 border-b-2 border-violet-400/50'
+                  }`}
+                  style={{ left: `${leftFrac}%`, width: `${width}%` }}
+                  title={`${evt.type} zoom: ${fmtMs(evt.startMs)} - ${fmtMs(evt.endMs)}`}
+                />
+              )
+            })}
+            {/* Zoom lane labels */}
+            <div className="absolute inset-0 flex items-center px-1.5 pointer-events-none">
+              <span className="text-[8px] text-zinc-600 font-medium tracking-wider uppercase">Zoom</span>
+            </div>
+          </div>
+        )}
+
+        {/* Main track */}
         <div
           ref={trackRef}
-          className="relative flex-1 bg-zinc-800/80 rounded-lg overflow-hidden border border-zinc-700/50 cursor-pointer"
+          className="relative flex-1 bg-zinc-800/60 rounded-lg overflow-hidden border border-zinc-700/40 cursor-pointer"
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect()
             const frac = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
             onSetPlayheadMs(Math.round(visualFracToAbs(frac)))
           }}
         >
+          {/* Segments */}
           {(() => {
             let visualOffset = 0
             return visibleSegments.map((segment) => {
@@ -160,10 +204,10 @@ export function Timeline(props: TimelineProps) {
               return (
                 <div
                   key={segment.id}
-                  className={`absolute inset-y-1 rounded-md transition-colors ${
+                  className={`absolute inset-y-1 rounded transition-all duration-100 ${
                     isSelected
-                      ? 'bg-red-500/50 border border-red-500/70'
-                      : 'bg-red-500/20 border border-red-500/30 hover:bg-red-500/35'
+                      ? 'bg-red-500/40 ring-1 ring-red-400/70 ring-inset'
+                      : 'bg-zinc-600/30 hover:bg-zinc-500/35'
                   }`}
                   style={{ left: `${left}%`, width: `${width}%` }}
                   onClick={(event) => {
@@ -171,18 +215,19 @@ export function Timeline(props: TimelineProps) {
                     onToggleSegmentSelected(segment.id)
                   }}
                 >
-                  <span className="text-[10px] text-red-300/60 pl-1.5 truncate block leading-tight pt-1">
+                  <span className="text-[9px] text-zinc-400/70 pl-1.5 truncate block leading-tight pt-1 font-mono">
                     {fmtMs(segment.endTime - segment.startTime)}
                   </span>
+                  {/* Trim handles */}
                   <div
-                    className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-l-md hover:bg-red-400/80"
+                    className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize rounded-l transition-colors hover:bg-white/20"
                     onMouseDown={(e) => {
                       e.stopPropagation()
                       setTrimDrag({ segmentId: segment.id, side: 'left' })
                     }}
                   />
                   <div
-                    className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-red-400/50 rounded-r-md hover:bg-red-400/80"
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize rounded-r transition-colors hover:bg-white/20"
                     onMouseDown={(e) => {
                       e.stopPropagation()
                       setTrimDrag({ segmentId: segment.id, side: 'right' })
@@ -193,20 +238,44 @@ export function Timeline(props: TimelineProps) {
             })
           })()}
 
+          {/* Zoom event overlays on main track (thin bottom strip) */}
+          {zoomEvents.length > 0 && zoomEvents.map((evt, i) => {
+            const leftFrac = absToVisualFrac(evt.startMs) * 100
+            const rightFrac = absToVisualFrac(evt.endMs) * 100
+            const width = Math.max(rightFrac - leftFrac, 0.3)
+            const isClick = evt.type === 'click'
+            return (
+              <div
+                key={`zoom-${i}`}
+                className={`absolute bottom-0 h-[3px] pointer-events-none ${
+                  isClick ? 'bg-cyan-400/50' : 'bg-violet-400/40'
+                }`}
+                style={{ left: `${leftFrac}%`, width: `${width}%` }}
+              />
+            )
+          })}
+
+          {/* Playhead */}
           <div
-            className="absolute top-0 bottom-0 w-px bg-white/80 pointer-events-none"
-            style={{ left: `${absToVisualFrac(playheadMs) * 100}%` }}
+            className="absolute top-0 bottom-0 w-px pointer-events-none"
+            style={{
+              left: `${playheadFrac}%`,
+              background: 'linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0.4))',
+            }}
           />
           <div
-            className="absolute -top-px w-2 h-2 bg-white rounded-sm -translate-x-1/2 pointer-events-none"
-            style={{ left: `${absToVisualFrac(playheadMs) * 100}%` }}
+            className="absolute -top-px w-2.5 h-2.5 bg-white rounded-full -translate-x-1/2 pointer-events-none shadow-sm shadow-black/30"
+            style={{ left: `${playheadFrac}%` }}
           />
         </div>
 
+        {/* Time ruler */}
         <div className="flex justify-between mt-1 px-0.5">
-          <span className="text-[10px] text-zinc-600 font-mono">0:00</span>
-          <span className="text-[10px] text-zinc-600 font-mono">{fmtMs(Math.floor(visualDuration / 2))}</span>
-          <span className="text-[10px] text-zinc-600 font-mono">{fmtMs(visualDuration)}</span>
+          <span className="text-[9px] text-zinc-600 font-mono tabular-nums">0:00</span>
+          <span className="text-[9px] text-zinc-600 font-mono tabular-nums">{fmtMs(Math.floor(visualDuration / 4))}</span>
+          <span className="text-[9px] text-zinc-600 font-mono tabular-nums">{fmtMs(Math.floor(visualDuration / 2))}</span>
+          <span className="text-[9px] text-zinc-600 font-mono tabular-nums">{fmtMs(Math.floor((visualDuration * 3) / 4))}</span>
+          <span className="text-[9px] text-zinc-600 font-mono tabular-nums">{fmtMs(visualDuration)}</span>
         </div>
       </div>
     </div>

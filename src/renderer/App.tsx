@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
-import type { TimelineSegment } from '../shared/types'
+import type { TimelineSegment, ZoomEvent } from '../shared/types'
+import type { RecordingMetadata } from './hooks/useRecording'
 import { SettingsPanel } from './components/SettingsPanel'
 import { Timeline } from './components/Timeline'
 import { VideoPreview } from './components/VideoPreview'
@@ -10,7 +11,7 @@ import { SpringCamera } from './engine/spring-camera'
 import { usePlayback } from './hooks/usePlayback'
 import { useRecording } from './hooks/useRecording'
 import { useRecordingStore } from './store/recording'
-import { fmtMs } from './utils/format'
+import { fmtFileSize, fmtMs } from './utils/format'
 
 function genId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -31,6 +32,8 @@ function App() {
   const [exportDone, setExportDone] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [zoomEvents, setZoomEvents] = useState<ZoomEvent[]>([])
+  const [recordingMetadata, setRecordingMetadata] = useState<RecordingMetadata | null>(null)
 
   const { playbackUrl, clearPlayback, setPlaybackFromChunks } = usePlayback()
   const {
@@ -41,13 +44,11 @@ function App() {
     startRecording,
     stopRecording,
     getChunks,
+    zoomEventsRef,
+    startMsRef,
   } = useRecording({ settings, setStatus })
 
-  const cameraRef = useRef(new SpringCamera(
-    settings.screenSpringStiffness,
-    settings.screenSpringDamping,
-    settings.screenSpringMass,
-  ))
+  const cameraRef = useRef(new SpringCamera())
   const cursorNormRef = useRef({ x: 0.5, y: 0.5 })
   const smoothCursorRef = useRef({ x: 0.5, y: 0.5 })
   const ripplesRef = useRef<ClickRipple[]>([])
@@ -104,6 +105,8 @@ function App() {
       ripplesRef,
       clickedRef,
       settings,
+      zoomEventsRef,
+      recordStartMs: startMsRef.current,
     })
 
     return () => {
@@ -143,6 +146,8 @@ function App() {
     setExportDone(false)
     setExportError(null)
     setExportProgress(null)
+    setZoomEvents([])
+    setRecordingMetadata(null)
 
     await startRecording()
   }, [clearPlayback, startRecording])
@@ -164,6 +169,8 @@ function App() {
     setPlayheadMs(Math.floor(result.duration / 2))
     setSelectedSegmentId(null)
     setHasRecorded(true)
+    setZoomEvents(result.zoomEvents)
+    setRecordingMetadata(result.metadata)
   }, [setPlaybackFromChunks, settings.autoZoom, stopRecording])
 
   const handleSplit = useCallback(() => {
@@ -258,26 +265,26 @@ function App() {
             onPlayingChange={setIsPlaying}
           />
 
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-2.5">
             {status === 'idle' && !hasRecorded ? (
               <button
                 data-testid="record-btn"
-                className="flex items-center gap-2 rounded-full bg-red-500 px-7 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/25 active:scale-95"
+                className="flex items-center gap-2 rounded-full bg-red-500 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/20 active:scale-[0.97]"
                 onClick={handleRecord}
               >
-                <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                <div className="w-2 h-2 rounded-full bg-white" />
                 Record
               </button>
             ) : status === 'idle' && hasRecorded ? (
               <>
                 <button
                   data-testid="play-btn"
-                  className="flex items-center gap-2 rounded-full bg-blue-600 px-7 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-600/25 active:scale-95"
+                  className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-600/20 active:scale-[0.97]"
                   onClick={() => setIsPlaying((p) => !p)}
                 >
                   {isPlaying ? (
                     <>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="white">
                         <rect x="1" y="1" width="3.5" height="10" rx="0.5" />
                         <rect x="7.5" y="1" width="3.5" height="10" rx="0.5" />
                       </svg>
@@ -285,7 +292,7 @@ function App() {
                     </>
                   ) : (
                     <>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="white">
                         <polygon points="2,0 12,6 2,12" />
                       </svg>
                       Play
@@ -294,49 +301,61 @@ function App() {
                 </button>
                 <button
                   data-testid="record-btn"
-                  className="flex items-center gap-2 rounded-full bg-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-300 transition-all duration-150 hover:bg-zinc-600 active:scale-95"
+                  className="flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-[13px] font-medium text-zinc-400 transition-all duration-150 hover:bg-zinc-700 hover:text-zinc-200 active:scale-[0.97]"
                   onClick={handleRecord}
                 >
-                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
                   Re-record
                 </button>
               </>
             ) : status === 'recording' ? (
               <button
                 data-testid="stop-btn"
-                className="flex items-center gap-2 rounded-full bg-zinc-700 px-7 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-zinc-600 active:scale-95"
+                className="flex items-center gap-2 rounded-full bg-zinc-700 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-zinc-600 active:scale-[0.97]"
                 onClick={handleStop}
               >
-                <div className="w-2.5 h-2.5 rounded-sm bg-white" />
+                <div className="w-2 h-2 rounded-sm bg-white" />
                 Stop
               </button>
             ) : null}
 
             <button
               data-testid="settings"
-              className={`rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-150 active:scale-95 [-webkit-app-region:no-drag] ${
+              className={`rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-150 active:scale-[0.97] [-webkit-app-region:no-drag] ${
                 settingsOpen
-                  ? 'bg-zinc-600 text-white shadow-inner'
-                  : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  ? 'bg-zinc-600 text-white'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
               }`}
               onClick={() => setSettingsOpen((open) => !open)}
             >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" className="inline-block mr-1.5 -mt-px">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
               Settings
             </button>
           </div>
 
-          <div className="mt-5 flex items-center gap-2.5">
-            <label htmlFor="zoom-toggle" className="text-xs font-medium text-zinc-400 cursor-pointer">
+          <div className="mt-4 flex items-center gap-2.5">
+            <label htmlFor="zoom-toggle" className="text-[11px] font-medium text-zinc-500 cursor-pointer">
               Auto-Zoom
             </label>
-            <input
-              type="checkbox"
+            <button
               id="zoom-toggle"
               data-testid="zoom-toggle"
-              checked={settings.autoZoom}
-              onChange={(event) => updateSettings({ autoZoom: event.target.checked })}
-              className="h-4 w-4 rounded accent-red-500 cursor-pointer"
-            />
+              role="switch"
+              aria-checked={settings.autoZoom}
+              onClick={() => updateSettings({ autoZoom: !settings.autoZoom })}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+                settings.autoZoom ? 'bg-red-500' : 'bg-zinc-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  settings.autoZoom ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                }`}
+              />
+            </button>
           </div>
         </div>
 
@@ -354,6 +373,7 @@ function App() {
         playheadMs={playheadMs}
         selectedSegmentId={selectedSegmentId}
         segments={segments}
+        zoomEvents={zoomEvents}
         onSetPlayheadMs={setPlayheadMs}
         onToggleSegmentSelected={(id) =>
           setSelectedSegmentId((prev) => (prev === id ? null : id))
@@ -363,29 +383,50 @@ function App() {
         onUpdateSegment={handleUpdateSegment}
       />
 
-      <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-950 px-4 py-2.5">
-        <div className="text-xs text-zinc-600">
+      <div className="flex items-center justify-between border-t border-zinc-800/60 bg-zinc-950 px-4 py-2">
+        <div className="flex items-center gap-4 text-[11px] text-zinc-600">
           {status === 'recording' ? (
-            <span className="flex items-center gap-1.5 text-red-400">
+            <span className="flex items-center gap-1.5 text-red-400 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
-              {fmtMs(recordDuration)}
+              REC {fmtMs(recordDuration)}
             </span>
           ) : exportError ? (
             <span className="text-rose-400">{exportError}</span>
           ) : exportProgress !== null ? (
-            <span className="text-blue-400">Exporting… {Math.round(exportProgress * 100)}%</span>
+            <span className="flex items-center gap-2 text-blue-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+              Exporting… {Math.round(exportProgress * 100)}%
+            </span>
           ) : exportDone ? (
-            <span className="text-emerald-400">Export complete</span>
+            <span className="text-emerald-400 font-medium">Export complete</span>
           ) : hasRecorded ? (
-            <span className="text-zinc-500">Ready to export · {fmtMs(recordDuration)}</span>
+            <span className="text-zinc-500 font-medium">{fmtMs(recordDuration)}</span>
           ) : (
             <span>Ready</span>
+          )}
+
+          {recordingMetadata && hasRecorded && (
+            <>
+              <span className="w-px h-3 bg-zinc-800" />
+              <span className="font-mono text-zinc-600">{recordingMetadata.screenWidth}×{recordingMetadata.screenHeight}</span>
+              <span className="font-mono text-zinc-600">{settings.fps}fps</span>
+              <span className="font-mono text-zinc-600">{fmtFileSize(recordingMetadata.fileSize)}</span>
+              <span className="font-mono text-zinc-700">{recordingMetadata.codec.replace('video/', '')}</span>
+            </>
+          )}
+
+          {zoomEvents.length > 0 && hasRecorded && (
+            <>
+              <span className="w-px h-3 bg-zinc-800" />
+              <span className="text-cyan-600">{zoomEvents.filter(e => e.type === 'click').length} click zooms</span>
+              <span className="text-violet-600">{zoomEvents.filter(e => e.type === 'dwell').length} dwell zooms</span>
+            </>
           )}
         </div>
         <button
           data-testid="export-btn"
           disabled={exportProgress !== null}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-md hover:shadow-blue-600/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-lg bg-blue-600 px-5 py-1.5 text-[11px] font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-md hover:shadow-blue-600/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleExport}
         >
           {exportProgress !== null ? `${Math.round(exportProgress * 100)}%` : 'Export MP4'}

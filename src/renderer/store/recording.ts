@@ -13,7 +13,7 @@ const defaultSettings: ProjectSettings = {
   fps: 60,
   resolution: 'native',
   autoZoom: true,
-  autoZoomLevel: 1.9,
+  autoZoomLevel: 1.902,
   dwellZoomLevel: 1.3,
   dwellDelay: 4000,
   cursorSmoothing: true,
@@ -27,6 +27,13 @@ const defaultSettings: ProjectSettings = {
   screenSpringStiffness: 200,
   screenSpringDamping: 40,
   screenSpringMass: 2.25,
+  mouseSpringStiffness: 470,
+  mouseSpringDamping: 70,
+  mouseSpringMass: 3,
+  zoomSpringStiffness: 700,
+  zoomSpringDamping: 30,
+  zoomSpringMass: 1,
+  snapToEdgesRatio: 0.25,
 }
 
 export const useRecordingStore = create<RecordingStore>((set) => ({

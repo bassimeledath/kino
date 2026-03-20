@@ -1,6 +1,8 @@
 import type { MutableRefObject, RefObject } from 'react'
-import type { ProjectSettings } from '../../shared/types'
+import type { ProjectSettings, ZoomEvent } from '../../shared/types'
+import type { SpringParams } from './spring-camera'
 import { SpringCamera } from './spring-camera'
+import type { ZoomState } from './zoom-controller'
 import { ZoomController } from './zoom-controller'
 
 export interface NormalizedCursor {
@@ -24,6 +26,8 @@ interface StartRenderLoopInput {
   ripplesRef: MutableRefObject<ClickRipple[]>
   clickedRef: MutableRefObject<boolean>
   settings: ProjectSettings
+  zoomEventsRef?: MutableRefObject<ZoomEvent[]>
+  recordStartMs?: number
 }
 
 export function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) {
@@ -51,23 +55,8 @@ function clipRoundedRect(ctx: CanvasRenderingContext2D, w: number, h: number, ra
   ctx.clip()
 }
 
-/**
- * Catmull-Rom spline interpolation between four points.
- * Returns the interpolated value at parameter t (0-1) between p1 and p2.
- */
-function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
-  const t2 = t * t
-  const t3 = t2 * t
-  return 0.5 * (
-    2 * p1 +
-    (-p0 + p2) * t +
-    (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-    (-p0 + 3 * p1 - 3 * p2 + p3) * t3
-  )
-}
-
 export function startRenderLoop(input: StartRenderLoopInput): () => void {
-  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, clickedRef, settings } = input
+  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, clickedRef, settings, zoomEventsRef, recordStartMs } = input
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
 
@@ -75,14 +64,33 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
   let prevCursor = { ...cursorNormRef.current }
   let lastFrameMs = performance.now()
 
+  // Zoom event tracking
+  let prevZoomState: ZoomState = 'IDLE'
+  let currentZoomStartMs = 0
+
   // Cursor shake removal: track stable cursor position, ignore micro-jitter
+  // Screen Studio uses removeCursorShakeThreshold: 500 (velocity-based, ~500px/s)
+  // We convert to per-frame threshold: 500px/s ÷ 60fps ≈ 8.3px/frame
   let stableCursorX = cursorNormRef.current.x
   let stableCursorY = cursorNormRef.current.y
-  const shakeThresholdPx = 8 // ~500px total / 60fps ≈ 8px per frame
 
-  // Ring buffer of last 4 cursor positions for Catmull-Rom interpolation
-  const cursorHistory: NormalizedCursor[] = Array.from({ length: 4 }, () => ({ ...cursorNormRef.current }))
-  let historyIndex = 0
+  // Cursor spring state (replaces Catmull-Rom — matches Screen Studio's mouseMovementSpring)
+  let cursorSpringX = cursorNormRef.current.x
+  let cursorSpringY = cursorNormRef.current.y
+  let cursorSpringVx = 0
+  let cursorSpringVy = 0
+
+  // Spring params (read from settings once, used per-frame)
+  const positionSpring: SpringParams = {
+    stiffness: settings.screenSpringStiffness,
+    damping: settings.screenSpringDamping,
+    mass: settings.screenSpringMass,
+  }
+  const zoomSpring: SpringParams = {
+    stiffness: settings.zoomSpringStiffness,
+    damping: settings.zoomSpringDamping,
+    mass: settings.zoomSpringMass,
+  }
 
   const intervalId = setInterval(() => {
     const now = performance.now()
@@ -95,7 +103,9 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     const videoW = vw - 2 * pad
     const videoH = vh - 2 * pad
 
-    // Cursor shake removal: only update stable position if movement exceeds threshold
+    // Cursor shake removal: only update stable position if movement exceeds velocity threshold
+    // ~500px/s converted to per-frame distance at actual frame rate
+    const shakeThresholdPx = dt > 0 ? 500 * dt : 8
     const rawDx = (cursorNormRef.current.x - stableCursorX) * vw
     const rawDy = (cursorNormRef.current.y - stableCursorY) * vh
     const rawDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy)
@@ -104,22 +114,30 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       stableCursorY = cursorNormRef.current.y
     }
 
-    // Push stable (de-jittered) position into ring buffer
-    cursorHistory[historyIndex] = { x: stableCursorX, y: stableCursorY }
-    historyIndex = (historyIndex + 1) % 4
-
-    // Compute smoothed cursor position
+    // Cursor spring: smooth cursor position using mouseMovementSpring (470/70/3)
+    // This replaces Catmull-Rom and matches Screen Studio's mouse following behavior
     let smoothX: number
     let smoothY: number
 
     if (settings.cursorSmoothing) {
-      const p0 = cursorHistory[(historyIndex + 0) % 4]
-      const p1 = cursorHistory[(historyIndex + 1) % 4]
-      const p2 = cursorHistory[(historyIndex + 2) % 4]
-      const p3 = cursorHistory[(historyIndex + 3) % 4]
-      smoothX = catmullRom(p0.x, p1.x, p2.x, p3.x, 0.5)
-      smoothY = catmullRom(p0.y, p1.y, p2.y, p3.y, 0.5)
+      const ms = settings.mouseSpringStiffness
+      const md = settings.mouseSpringDamping
+      const mm = settings.mouseSpringMass
+
+      const cax = (ms * (stableCursorX - cursorSpringX) - md * cursorSpringVx) / mm
+      const cay = (ms * (stableCursorY - cursorSpringY) - md * cursorSpringVy) / mm
+      cursorSpringVx += cax * dt
+      cursorSpringVy += cay * dt
+      cursorSpringX += cursorSpringVx * dt
+      cursorSpringY += cursorSpringVy * dt
+
+      smoothX = cursorSpringX
+      smoothY = cursorSpringY
     } else {
+      cursorSpringX = stableCursorX
+      cursorSpringY = stableCursorY
+      cursorSpringVx = 0
+      cursorSpringVy = 0
       smoothX = stableCursorX
       smoothY = stableCursorY
     }
@@ -150,11 +168,46 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       clicked,
     })
 
-    // CRITICAL: At zoom 1.0x, camera target = center (0,0). Only pan when zoomed in.
-    const shouldPan = camera.zoom > 1.05
-    const tx = shouldPan ? (smoothX - 0.5) * videoW : 0
-    const ty = shouldPan ? (smoothY - 0.5) * videoH : 0
-    camera.update(tx, ty, targetZoom, dt)
+    // Track zoom events for timeline visualization
+    if (zoomEventsRef) {
+      const zoomState = zoomController.getState()
+      const elapsedMs = recordStartMs ? Date.now() - recordStartMs : 0
+
+      const isZooming = zoomState === 'CLICK_ZOOM_IN' || zoomState === 'CLICK_HOLD' ||
+        zoomState === 'DWELL_ZOOM_IN' || zoomState === 'DWELL_HOLD'
+      const wasZooming = prevZoomState === 'CLICK_ZOOM_IN' || prevZoomState === 'CLICK_HOLD' ||
+        prevZoomState === 'DWELL_ZOOM_IN' || prevZoomState === 'DWELL_HOLD'
+
+      if (isZooming && !wasZooming) {
+        currentZoomStartMs = elapsedMs
+      } else if (!isZooming && wasZooming) {
+        const type = prevZoomState.startsWith('CLICK') ? 'click' : 'dwell'
+        zoomEventsRef.current.push({
+          startMs: currentZoomStartMs,
+          endMs: elapsedMs,
+          type: type as 'click' | 'dwell',
+        })
+      }
+      prevZoomState = zoomState
+    }
+
+    // Camera target: only pan when zoomed in
+    const shouldPan = targetZoom > 1.05
+    let tx = shouldPan ? (smoothX - 0.5) * videoW : 0
+    let ty = shouldPan ? (smoothY - 0.5) * videoH : 0
+
+    // snapToEdgesRatio: clamp camera target so viewport stays within recording bounds
+    // Screen Studio uses 0.25 — keeps 25% margin from edges, preventing "cursor going far left"
+    if (shouldPan && settings.snapToEdgesRatio > 0) {
+      const effectiveZoom = Math.max(targetZoom, camera.zoom)
+      const maxPanX = videoW / 2 * (1 - 1 / effectiveZoom) * (1 - settings.snapToEdgesRatio)
+      const maxPanY = videoH / 2 * (1 - 1 / effectiveZoom) * (1 - settings.snapToEdgesRatio)
+      tx = Math.max(-maxPanX, Math.min(maxPanX, tx))
+      ty = Math.max(-maxPanY, Math.min(maxPanY, ty))
+    }
+
+    // Update camera with separate springs for position (screen) and zoom (click)
+    camera.update(tx, ty, targetZoom, dt, positionSpring, zoomSpring)
 
     ctx.fillStyle = settings.background
     ctx.fillRect(0, 0, vw, vh)

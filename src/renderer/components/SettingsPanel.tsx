@@ -7,6 +7,71 @@ interface SettingsPanelProps {
   onClose: () => void
 }
 
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-3 mt-1">
+      <span className="text-[10px] font-semibold text-zinc-500 tracking-widest uppercase">{children}</span>
+      <div className="flex-1 h-px bg-zinc-800/80" />
+    </div>
+  )
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+        checked ? 'bg-red-500' : 'bg-zinc-700'
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
+        }`}
+      />
+    </button>
+  )
+}
+
+function Slider({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  label,
+  format,
+}: {
+  value: number
+  min: number
+  max: number
+  step?: number
+  onChange: (v: number) => void
+  label: string
+  format: (v: number) => string
+}) {
+  return (
+    <div>
+      <div className="flex justify-between mb-1.5">
+        <label className="text-[11px] font-medium text-zinc-400">{label}</label>
+        <span className="text-[11px] font-mono text-zinc-500 tabular-nums">{format(value)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="settings-range w-full"
+      />
+    </div>
+  )
+}
+
 export function SettingsPanel(props: SettingsPanelProps) {
   const { settingsOpen, settings, updateSettings, onClose } = props
 
@@ -15,147 +80,189 @@ export function SettingsPanel(props: SettingsPanelProps) {
   return (
     <div
       data-testid="settings-panel"
-      className="w-72 border-l border-zinc-800 bg-zinc-900 overflow-y-auto flex-shrink-0"
+      className="w-[280px] border-l border-zinc-800/60 bg-zinc-900/95 overflow-y-auto flex-shrink-0"
     >
-      <div className="p-5">
+      <div className="p-4">
+        {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-semibold text-zinc-100">Settings</h2>
+          <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">Settings</h2>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-all"
           >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
+          {/* ── Appearance ── */}
+          <SectionHeader>Appearance</SectionHeader>
+
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-2">Background Color</label>
+            <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">Background</label>
             <div className="flex items-center gap-2.5">
               <input
                 type="color"
                 value={settings.background}
-                onChange={(event) => updateSettings({ background: event.target.value })}
-                className="w-8 h-8 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                onChange={(e) => updateSettings({ background: e.target.value })}
+                className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
               />
-              <span className="text-xs text-zinc-500 font-mono">{settings.background}</span>
+              <span className="text-[11px] text-zinc-600 font-mono">{settings.background}</span>
             </div>
           </div>
 
-          <div>
-            <div className="flex justify-between mb-2">
-              <label className="text-xs font-medium text-zinc-400">Padding</label>
-              <span className="text-xs font-mono text-zinc-500">{settings.padding}px</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="120"
-              value={settings.padding}
-              onChange={(event) => updateSettings({ padding: Number(event.target.value) })}
-              className="w-full h-1.5 accent-red-500 cursor-pointer"
+          <Slider
+            value={settings.padding}
+            min={0} max={120}
+            onChange={(v) => updateSettings({ padding: v })}
+            label="Padding"
+            format={(v) => `${v}px`}
+          />
+
+          <Slider
+            value={settings.cornerRadius}
+            min={0} max={40}
+            onChange={(v) => updateSettings({ cornerRadius: v })}
+            label="Corner Radius"
+            format={(v) => `${v}px`}
+          />
+
+          <div className="flex items-center justify-between py-0.5">
+            <label className="text-[11px] font-medium text-zinc-400">Drop Shadow</label>
+            <Toggle
+              checked={settings.shadowEnabled}
+              onChange={(v) => updateSettings({ shadowEnabled: v })}
             />
           </div>
 
-          <div>
-            <div className="flex justify-between mb-2">
-              <label className="text-xs font-medium text-zinc-400">Corner Radius</label>
-              <span className="text-xs font-mono text-zinc-500">{settings.cornerRadius}px</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="40"
-              value={settings.cornerRadius}
-              onChange={(event) => updateSettings({ cornerRadius: Number(event.target.value) })}
-              className="w-full h-1.5 accent-red-500 cursor-pointer"
+          {settings.shadowEnabled && (
+            <Slider
+              value={settings.shadowBlur}
+              min={0} max={80}
+              onChange={(v) => updateSettings({ shadowBlur: v })}
+              label="Shadow Blur"
+              format={(v) => `${v}px`}
+            />
+          )}
+
+          {/* ── Zoom & Cursor ── */}
+          <SectionHeader>Zoom & Cursor</SectionHeader>
+
+          <Slider
+            value={settings.autoZoomLevel}
+            min={1} max={4} step={0.1}
+            onChange={(v) => updateSettings({ autoZoomLevel: v })}
+            label="Click Zoom"
+            format={(v) => `${v.toFixed(1)}x`}
+          />
+
+          <Slider
+            value={settings.dwellZoomLevel}
+            min={1} max={3} step={0.1}
+            onChange={(v) => updateSettings({ dwellZoomLevel: v })}
+            label="Dwell Zoom"
+            format={(v) => `${v.toFixed(1)}x`}
+          />
+
+          <Slider
+            value={settings.dwellDelay}
+            min={1000} max={8000} step={500}
+            onChange={(v) => updateSettings({ dwellDelay: v })}
+            label="Dwell Delay"
+            format={(v) => `${(v / 1000).toFixed(1)}s`}
+          />
+
+          <Slider
+            value={settings.cursorSize}
+            min={0.5} max={3} step={0.1}
+            onChange={(v) => updateSettings({ cursorSize: v })}
+            label="Cursor Size"
+            format={(v) => `${v.toFixed(1)}x`}
+          />
+
+          <div className="flex items-center justify-between py-0.5">
+            <label className="text-[11px] font-medium text-zinc-400">Cursor Smoothing</label>
+            <Toggle
+              checked={settings.cursorSmoothing}
+              onChange={(v) => updateSettings({ cursorSmoothing: v })}
             />
           </div>
 
           <div className="flex items-center justify-between py-0.5">
-            <label className="text-xs font-medium text-zinc-400">Drop Shadow</label>
-            <input
-              type="checkbox"
-              checked={settings.shadowEnabled}
-              onChange={(event) => updateSettings({ shadowEnabled: event.target.checked })}
-              className="h-4 w-4 rounded accent-red-500 cursor-pointer"
+            <label className="text-[11px] font-medium text-zinc-400">Click Highlight</label>
+            <Toggle
+              checked={settings.clickHighlight}
+              onChange={(v) => updateSettings({ clickHighlight: v })}
             />
           </div>
 
+          {/* ── Export ── */}
+          <SectionHeader>Export</SectionHeader>
+
           <div>
-            <div className="flex justify-between mb-2">
-              <label className="text-xs font-medium text-zinc-400">Zoom Level</label>
-              <span className="text-xs font-mono text-zinc-500">{settings.autoZoomLevel.toFixed(1)}x</span>
+            <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">Frame Rate</label>
+            <div className="flex gap-1.5">
+              {([30, 60] as const).map((fps) => (
+                <button
+                  key={fps}
+                  onClick={() => updateSettings({ fps })}
+                  className={`flex-1 text-[11px] font-medium py-1.5 rounded-md border transition-all ${
+                    settings.fps === fps
+                      ? 'bg-zinc-700 border-zinc-600 text-white'
+                      : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                  }`}
+                >
+                  {fps} fps
+                </button>
+              ))}
             </div>
-            <input
-              type="range"
-              min="1"
-              max="4"
-              step="0.1"
-              value={settings.autoZoomLevel}
-              onChange={(event) => updateSettings({ autoZoomLevel: Number(event.target.value) })}
-              className="w-full h-1.5 accent-red-500 cursor-pointer"
-            />
           </div>
 
           <div>
-            <div className="flex justify-between mb-2">
-              <label className="text-xs font-medium text-zinc-400">Cursor Size</label>
-              <span className="text-xs font-mono text-zinc-500">{settings.cursorSize.toFixed(1)}x</span>
-            </div>
-            <input
-              type="range"
-              min="0.5"
-              max="3"
-              step="0.1"
-              value={settings.cursorSize}
-              onChange={(event) => updateSettings({ cursorSize: Number(event.target.value) })}
-              className="w-full h-1.5 accent-red-500 cursor-pointer"
-            />
-          </div>
-
-          <div className="border-t border-zinc-800" />
-
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-2">Frame Rate</label>
-            <select
-              value={settings.fps}
-              onChange={(event) => updateSettings({ fps: Number(event.target.value) as 30 | 60 })}
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 text-xs text-white px-3 py-2 cursor-pointer"
-            >
-              <option value={30}>30 fps</option>
-              <option value={60}>60 fps</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-2">Export Resolution</label>
+            <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">Resolution</label>
             <select
               value={settings.resolution}
-              onChange={(event) =>
-                updateSettings({ resolution: event.target.value as ProjectSettings['resolution'] })
+              onChange={(e) =>
+                updateSettings({ resolution: e.target.value as ProjectSettings['resolution'] })
               }
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 text-xs text-white px-3 py-2 cursor-pointer"
+              className="w-full rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[11px] text-zinc-300 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-zinc-600 transition-colors"
             >
               <option value="native">Native</option>
-              <option value="4k">4K (3840×2160)</option>
-              <option value="1080p">1080p (1920×1080)</option>
-              <option value="720p">720p (1280×720)</option>
+              <option value="4k">4K (3840x2160)</option>
+              <option value="1080p">1080p (1920x1080)</option>
+              <option value="720p">720p (1280x720)</option>
             </select>
           </div>
 
-          <div className="flex items-center justify-between py-0.5">
-            <label className="text-xs font-medium text-zinc-400">Click Highlight</label>
-            <input
-              type="checkbox"
-              checked={settings.clickHighlight}
-              onChange={(event) => updateSettings({ clickHighlight: event.target.checked })}
-              className="h-4 w-4 rounded accent-red-500 cursor-pointer"
-            />
-          </div>
+          {/* ── Physics ── */}
+          <SectionHeader>Spring Physics</SectionHeader>
+
+          <Slider
+            value={settings.screenSpringStiffness}
+            min={50} max={500} step={10}
+            onChange={(v) => updateSettings({ screenSpringStiffness: v })}
+            label="Stiffness"
+            format={(v) => `${v}`}
+          />
+
+          <Slider
+            value={settings.screenSpringDamping}
+            min={10} max={100} step={5}
+            onChange={(v) => updateSettings({ screenSpringDamping: v })}
+            label="Damping"
+            format={(v) => `${v}`}
+          />
+
+          <Slider
+            value={settings.screenSpringMass}
+            min={0.5} max={5} step={0.25}
+            onChange={(v) => updateSettings({ screenSpringMass: v })}
+            label="Mass"
+            format={(v) => `${v.toFixed(2)}`}
+          />
         </div>
       </div>
     </div>
