@@ -6,6 +6,7 @@ interface TimelineProps {
   hasRecorded: boolean
   recordDuration: number
   playheadMs: number
+  ghostMs: number | null
   selectedSegmentId: string | null
   segments: TimelineSegment[]
   zoomEvents: ZoomEvent[]
@@ -13,6 +14,7 @@ interface TimelineProps {
   autoZoomLevel: number
   dwellZoomLevel: number
   onSetPlayheadMs: (value: number) => void
+  onGhostMsChange: (ms: number | null) => void
   onToggleSegmentSelected: (id: string) => void
   onSplit: () => void
   onDeleteSegment: () => void
@@ -25,6 +27,7 @@ export function Timeline(props: TimelineProps) {
     hasRecorded,
     recordDuration,
     playheadMs,
+    ghostMs,
     selectedSegmentId,
     segments,
     zoomEvents,
@@ -32,6 +35,7 @@ export function Timeline(props: TimelineProps) {
     autoZoomLevel,
     dwellZoomLevel,
     onSetPlayheadMs,
+    onGhostMsChange,
     onToggleSegmentSelected,
     onSplit,
     onDeleteSegment,
@@ -142,7 +146,7 @@ export function Timeline(props: TimelineProps) {
 
   const playheadFrac = absToVisualFrac(playheadMs) * 100
 
-  // Hover scrub — move mouse over tracks to preview that frame instantly
+  // Hover scrub — move mouse over tracks to show ghost cursor for preview
   // Only when NOT playing — don't interfere with active playback
   const handleTrackMouseMove = (e: React.MouseEvent) => {
     if (trimDrag) return
@@ -151,15 +155,22 @@ export function Timeline(props: TimelineProps) {
     if (!rect) return
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     const ms = Math.round(visualFracToAbs(frac))
-    onSetPlayheadMs(ms)
+    onGhostMsChange(ms)
   }
 
+  const handleTrackMouseLeave = () => {
+    onGhostMsChange(null)
+  }
+
+  // Click commits the ghost position as the new playhead
   const handleTrackClick = (e: React.MouseEvent) => {
+    if (isPlaying) onPlayingChange(false)
     const rect = trackRef.current?.getBoundingClientRect()
     if (!rect) return
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    if (isPlaying) onPlayingChange(false)
-    onSetPlayheadMs(Math.round(visualFracToAbs(frac)))
+    const ms = Math.round(visualFracToAbs(frac))
+    onSetPlayheadMs(ms)
+    onGhostMsChange(null)
   }
 
   return (
@@ -265,6 +276,7 @@ export function Timeline(props: TimelineProps) {
           ref={trackRef}
           className="relative flex-1 flex flex-col gap-1 cursor-pointer"
           onMouseMove={handleTrackMouseMove}
+          onMouseLeave={handleTrackMouseLeave}
           onClick={handleTrackClick}
         >
           {/* Clip track — orange/amber like Screen Studio */}
@@ -360,6 +372,19 @@ export function Timeline(props: TimelineProps) {
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* Ghost cursor — thin semi-transparent white line at hover position */}
+          {ghostMs != null && (
+            <div
+              className="absolute top-0 bottom-0 pointer-events-none z-10"
+              style={{ left: `${absToVisualFrac(ghostMs) * 100}%` }}
+            >
+              <div
+                className="absolute top-0 bottom-0 left-0 w-px"
+                style={{ background: 'rgba(255, 255, 255, 0.35)' }}
+              />
             </div>
           )}
 

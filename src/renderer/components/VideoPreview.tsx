@@ -17,6 +17,7 @@ interface VideoPreviewProps {
   onPlayheadChange: (ms: number) => void
   isPlaying: boolean
   onPlayingChange: (playing: boolean) => void
+  ghostMs: number | null
 }
 
 export function VideoPreview(props: VideoPreviewProps) {
@@ -34,6 +35,7 @@ export function VideoPreview(props: VideoPreviewProps) {
     onPlayheadChange,
     isPlaying,
     onPlayingChange,
+    ghostMs,
   } = props
 
   return (
@@ -99,6 +101,7 @@ export function VideoPreview(props: VideoPreviewProps) {
               isPlaying={isPlaying}
               onPlayingChange={onPlayingChange}
               settings={settings}
+              ghostMs={ghostMs}
             />
           ) : (
             <div
