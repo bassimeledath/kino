@@ -79,6 +79,21 @@ export function CanvasPlayback({
       }
       ctx.drawImage(video, pad, pad, videoW, videoH)
       ctx.restore()
+
+      // Draw inset border on top of the video frame
+      if (s.insetEnabled && s.insetWidth > 0) {
+        ctx.save()
+        const hex = s.insetColor
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${s.insetAlpha})`
+        ctx.lineWidth = s.insetWidth
+        const halfLW = s.insetWidth / 2
+        roundedRectPath(ctx, pad + halfLW, pad + halfLW, videoW - s.insetWidth, videoH - s.insetWidth, Math.max(0, s.cornerRadius - halfLW))
+        ctx.stroke()
+        ctx.restore()
+      }
     }
   }, [])
 
