@@ -5,6 +5,29 @@ import { SpringCamera } from './spring-camera'
 import type { ZoomState } from './zoom-controller'
 import { ZoomController } from './zoom-controller'
 
+// macOS-style arrow cursor as inline SVG data URL (black arrow with white border)
+// Standard macOS cursor proportions at 2x (64x64 canvas, ~32x32 logical)
+const MACOS_CURSOR_SVG = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <g transform="translate(8, 4)">
+    <path d="M0 0 L0 48 L12 36 L22 56 L30 52 L20 32 L36 32 Z"
+          fill="white" stroke="white" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M0 0 L0 48 L12 36 L22 56 L30 52 L20 32 L36 32 Z"
+          fill="black" stroke="black" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+</svg>`)}`
+
+// Cursor image singleton — loaded once, shared across render loops
+let cursorImg: HTMLImageElement | null = null
+let cursorImgLoaded = false
+
+function ensureCursorImage(): HTMLImageElement {
+  if (cursorImg) return cursorImg
+  cursorImg = new Image()
+  cursorImg.onload = () => { cursorImgLoaded = true }
+  cursorImg.src = MACOS_CURSOR_SVG
+  return cursorImg
+}
+
 export interface NormalizedCursor {
   x: number
   y: number
@@ -60,6 +83,9 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
 
+  // Preload cursor image before first frame
+  ensureCursorImage()
+
   const zoomController = new ZoomController()
   let prevCursor = { ...cursorNormRef.current }
   let lastFrameMs = performance.now()
@@ -79,6 +105,9 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
   let cursorSpringY = cursorNormRef.current.y
   let cursorSpringVx = 0
   let cursorSpringVy = 0
+
+  // Cursor rotation state: subtle tilt based on horizontal velocity
+  let cursorRotation = 0
 
   // Spring params (read from settings once, used per-frame)
   const positionSpring: SpringParams = {
@@ -292,14 +321,36 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       }
     }
 
-    ctx.save()
-    ctx.beginPath()
-    ctx.arc(cx, cy, 7 * settings.cursorSize, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(255,255,255,0.93)'
-    ctx.shadowColor = 'rgba(0,0,0,0.55)'
-    ctx.shadowBlur = 7
-    ctx.fill()
-    ctx.restore()
+    // Subtle cursor rotation based on horizontal cursor spring velocity
+    const hVel = cursorSpringVx * vw
+    const targetRotation = Math.max(-0.25, Math.min(0.25, hVel * 0.0004))
+    cursorRotation += (targetRotation - cursorRotation) * Math.min(1, 8 * dt)
+
+    if (settings.cursorType === 'macos' && cursorImgLoaded && cursorImg) {
+      // Draw macOS arrow cursor with hotspot at top-left
+      // SVG is 64x64 at 2x, so logical size is 32x32. Scale by cursorSize.
+      const cursorW = 32 * settings.cursorSize
+      const cursorH = 32 * settings.cursorSize
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(cursorRotation)
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'
+      ctx.shadowBlur = 6
+      ctx.shadowOffsetX = 1
+      ctx.shadowOffsetY = 2
+      ctx.drawImage(cursorImg, 0, 0, cursorW, cursorH)
+      ctx.restore()
+    } else {
+      // Fallback: white circle while image loads or for non-macos cursor types
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(cx, cy, 7 * settings.cursorSize, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(255,255,255,0.93)'
+      ctx.shadowColor = 'rgba(0,0,0,0.55)'
+      ctx.shadowBlur = 7
+      ctx.fill()
+      ctx.restore()
+    }
 
   }, 16)
 
