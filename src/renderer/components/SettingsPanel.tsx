@@ -139,13 +139,43 @@ export function SettingsPanel(props: SettingsPanelProps) {
           </div>
 
           {settings.shadowEnabled && (
-            <Slider
-              value={settings.shadowBlur}
-              min={0} max={80}
-              onChange={(v) => updateSettings({ shadowBlur: v })}
-              label="Shadow Blur"
-              format={(v) => `${v}px`}
-            />
+            <>
+              <Slider
+                value={settings.shadowIntensity}
+                min={0} max={1} step={0.05}
+                onChange={(v) => updateSettings({ shadowIntensity: v })}
+                label="Intensity"
+                format={(v) => `${Math.round(v * 100)}%`}
+              />
+              <Slider
+                value={settings.shadowBlur}
+                min={0} max={80}
+                onChange={(v) => updateSettings({ shadowBlur: v })}
+                label="Blur"
+                format={(v) => `${v}px`}
+              />
+              <Slider
+                value={settings.shadowDistance}
+                min={0} max={40}
+                onChange={(v) => updateSettings({ shadowDistance: v })}
+                label="Distance"
+                format={(v) => `${v}px`}
+              />
+              <Slider
+                value={settings.shadowAngle}
+                min={0} max={360} step={15}
+                onChange={(v) => updateSettings({ shadowAngle: v })}
+                label="Angle"
+                format={(v) => `${v}°`}
+              />
+              <div className="flex items-center justify-between py-0.5">
+                <label className="text-[11px] font-medium text-zinc-400">Directional</label>
+                <Toggle
+                  checked={settings.shadowIsDirectional}
+                  onChange={(v) => updateSettings({ shadowIsDirectional: v })}
+                />
+              </div>
+            </>
           )}
 
           <div className="flex items-center justify-between py-0.5">

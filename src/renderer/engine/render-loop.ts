@@ -283,10 +283,16 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       // Draw drop shadow behind the video frame
       if (settings.shadowEnabled && settings.shadowBlur > 0 && pad > 0) {
         ctx.save()
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+        ctx.shadowColor = `rgba(0, 0, 0, ${settings.shadowIntensity})`
         ctx.shadowBlur = settings.shadowBlur
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 2
+        if (settings.shadowIsDirectional) {
+          const rad = (settings.shadowAngle * Math.PI) / 180
+          ctx.shadowOffsetX = Math.cos(rad) * settings.shadowDistance
+          ctx.shadowOffsetY = Math.sin(rad) * settings.shadowDistance
+        } else {
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 0
+        }
         ctx.fillStyle = '#000'
         roundedRectPath(ctx, pad, pad, videoW, videoH, settings.cornerRadius)
         ctx.fill()

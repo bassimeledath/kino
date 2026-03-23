@@ -61,10 +61,16 @@ export function CanvasPlayback({
       // Drop shadow
       if (s.shadowEnabled && s.shadowBlur > 0 && pad > 0) {
         ctx.save()
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+        ctx.shadowColor = `rgba(0, 0, 0, ${s.shadowIntensity})`
         ctx.shadowBlur = s.shadowBlur
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 2
+        if (s.shadowIsDirectional) {
+          const rad = (s.shadowAngle * Math.PI) / 180
+          ctx.shadowOffsetX = Math.cos(rad) * s.shadowDistance
+          ctx.shadowOffsetY = Math.sin(rad) * s.shadowDistance
+        } else {
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 0
+        }
         ctx.fillStyle = '#000'
         roundedRectPath(ctx, pad, pad, videoW, videoH, s.cornerRadius)
         ctx.fill()
