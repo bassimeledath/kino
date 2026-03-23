@@ -55,10 +55,63 @@ function clipRoundedRect(ctx: CanvasRenderingContext2D, w: number, h: number, ra
   ctx.clip()
 }
 
+export function drawBackground(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  settings: ProjectSettings,
+  bgImage: HTMLImageElement | null,
+) {
+  if (settings.backgroundType === 'gradient') {
+    const angle = (settings.backgroundGradientAngle * Math.PI) / 180
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const cx = w / 2
+    const cy = h / 2
+    const len = Math.abs(w * cos) / 2 + Math.abs(h * sin) / 2
+    const grad = ctx.createLinearGradient(
+      cx - cos * len, cy - sin * len,
+      cx + cos * len, cy + sin * len,
+    )
+    grad.addColorStop(0, settings.backgroundGradientFrom)
+    grad.addColorStop(1, settings.backgroundGradientTo)
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, w, h)
+  } else if (settings.backgroundType === 'image' && bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
+    // Cover scaling — fill canvas while preserving aspect ratio
+    const imgAspect = bgImage.naturalWidth / bgImage.naturalHeight
+    const canvasAspect = w / h
+    let sw: number, sh: number, sx: number, sy: number
+    if (imgAspect > canvasAspect) {
+      sh = bgImage.naturalHeight
+      sw = sh * canvasAspect
+      sx = (bgImage.naturalWidth - sw) / 2
+      sy = 0
+    } else {
+      sw = bgImage.naturalWidth
+      sh = sw / canvasAspect
+      sx = 0
+      sy = (bgImage.naturalHeight - sh) / 2
+    }
+    ctx.drawImage(bgImage, sx, sy, sw, sh, 0, 0, w, h)
+  } else {
+    // Solid (default)
+    ctx.fillStyle = settings.backgroundColor
+    ctx.fillRect(0, 0, w, h)
+  }
+}
+
 export function startRenderLoop(input: StartRenderLoopInput): () => void {
   const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, clickedRef, settings, zoomEventsRef, recordStartMs } = input
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
+
+  // Preload background image if configured
+  let bgImage: HTMLImageElement | null = null
+  if (settings.backgroundType === 'image' && settings.backgroundImageDataUrl) {
+    bgImage = new Image()
+    bgImage.src = settings.backgroundImageDataUrl
+  }
 
   const zoomController = new ZoomController()
   let prevCursor = { ...cursorNormRef.current }
@@ -246,8 +299,7 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     // Update camera with separate springs for position (screen) and zoom (click)
     camera.update(tx, ty, targetZoom, dt, positionSpring, zoomSpring, zoomOutSpring)
 
-    ctx.fillStyle = settings.backgroundColor
-    ctx.fillRect(0, 0, vw, vh)
+    drawBackground(ctx, vw, vh, settings, bgImage)
 
     const video = captureVideoRef.current
     if (video && video.readyState >= 2) {

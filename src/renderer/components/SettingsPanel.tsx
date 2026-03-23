@@ -103,15 +103,101 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
           <div>
             <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">Background</label>
-            <div className="flex items-center gap-2.5">
-              <input
-                type="color"
-                value={settings.backgroundColor}
-                onChange={(e) => updateSettings({ backgroundColor: e.target.value })}
-                className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
-              />
-              <span className="text-[11px] text-zinc-600 font-mono">{settings.backgroundColor}</span>
+            <div className="flex gap-1.5 mb-2.5">
+              {(['solid', 'gradient', 'image'] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => updateSettings({ backgroundType: type })}
+                  className={`flex-1 text-[11px] font-medium py-1.5 rounded-md border transition-all capitalize ${
+                    settings.backgroundType === type
+                      ? 'bg-zinc-700 border-zinc-600 text-white'
+                      : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
             </div>
+
+            {settings.backgroundType === 'solid' && (
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="color"
+                  value={settings.backgroundColor}
+                  onChange={(e) => updateSettings({ backgroundColor: e.target.value })}
+                  className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                />
+                <span className="text-[11px] text-zinc-600 font-mono">{settings.backgroundColor}</span>
+              </div>
+            )}
+
+            {settings.backgroundType === 'gradient' && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={settings.backgroundGradientFrom}
+                      onChange={(e) => updateSettings({ backgroundGradientFrom: e.target.value })}
+                      className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                    />
+                    <span className="text-[11px] text-zinc-600">From</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={settings.backgroundGradientTo}
+                      onChange={(e) => updateSettings({ backgroundGradientTo: e.target.value })}
+                      className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                    />
+                    <span className="text-[11px] text-zinc-600">To</span>
+                  </div>
+                </div>
+                <Slider
+                  value={settings.backgroundGradientAngle}
+                  min={0} max={360} step={1}
+                  onChange={(v) => updateSettings({ backgroundGradientAngle: v })}
+                  label="Angle"
+                  format={(v) => `${v}°`}
+                />
+              </div>
+            )}
+
+            {settings.backgroundType === 'image' && (
+              <div>
+                <button
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = 'image/*'
+                    input.onchange = () => {
+                      const file = input.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        if (typeof reader.result === 'string') {
+                          updateSettings({ backgroundImageDataUrl: reader.result })
+                        }
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                    input.click()
+                  }}
+                  className="w-full text-[11px] font-medium py-1.5 rounded-md border bg-zinc-800/50 border-zinc-700/50 text-zinc-400 hover:text-zinc-300 hover:border-zinc-600 transition-all"
+                >
+                  {settings.backgroundImageDataUrl ? 'Change Image' : 'Choose Image'}
+                </button>
+                {settings.backgroundImageDataUrl && (
+                  <div className="mt-2 rounded-md overflow-hidden border border-zinc-700/50">
+                    <img
+                      src={settings.backgroundImageDataUrl}
+                      alt="Background preview"
+                      className="w-full h-16 object-cover"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <Slider

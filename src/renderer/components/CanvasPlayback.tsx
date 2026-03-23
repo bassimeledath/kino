@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { ProjectSettings, TimelineSegment } from '../../shared/types'
-import { roundedRectPath } from '../engine/render-loop'
+import { drawBackground, roundedRectPath } from '../engine/render-loop'
 
 interface CanvasPlaybackProps {
   playbackUrl: string
@@ -37,6 +37,18 @@ export function CanvasPlayback({
   const settingsRef = useRef(settings)
   settingsRef.current = settings
 
+  // Preload background image
+  const bgImageRef = useRef<HTMLImageElement | null>(null)
+  useEffect(() => {
+    if (settings.backgroundType === 'image' && settings.backgroundImageDataUrl) {
+      const img = new Image()
+      img.src = settings.backgroundImageDataUrl
+      bgImageRef.current = img
+    } else {
+      bgImageRef.current = null
+    }
+  }, [settings.backgroundType, settings.backgroundImageDataUrl])
+
   // Draw a single frame with all effects
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current
@@ -54,8 +66,7 @@ export function CanvasPlayback({
     const videoH = vh - 2 * pad
 
     // Background
-    ctx.fillStyle = s.backgroundColor
-    ctx.fillRect(0, 0, vw, vh)
+    drawBackground(ctx, vw, vh, s, bgImageRef.current)
 
     if (video.readyState >= 2) {
       // Drop shadow
