@@ -106,11 +106,11 @@ export function SettingsPanel(props: SettingsPanelProps) {
             <div className="flex items-center gap-2.5">
               <input
                 type="color"
-                value={settings.background}
-                onChange={(e) => updateSettings({ background: e.target.value })}
+                value={settings.backgroundColor}
+                onChange={(e) => updateSettings({ backgroundColor: e.target.value })}
                 className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
               />
-              <span className="text-[11px] text-zinc-600 font-mono">{settings.background}</span>
+              <span className="text-[11px] text-zinc-600 font-mono">{settings.backgroundColor}</span>
             </div>
           </div>
 

@@ -54,7 +54,7 @@ export function CanvasPlayback({
     const videoH = vh - 2 * pad
 
     // Background
-    ctx.fillStyle = s.background
+    ctx.fillStyle = s.backgroundColor
     ctx.fillRect(0, 0, vw, vh)
 
     if (video.readyState >= 2) {

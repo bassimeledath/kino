@@ -246,7 +246,7 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     // Update camera with separate springs for position (screen) and zoom (click)
     camera.update(tx, ty, targetZoom, dt, positionSpring, zoomSpring, zoomOutSpring)
 
-    ctx.fillStyle = settings.background
+    ctx.fillStyle = settings.backgroundColor
     ctx.fillRect(0, 0, vw, vh)
 
     const video = captureVideoRef.current

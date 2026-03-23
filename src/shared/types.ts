@@ -15,11 +15,25 @@ export interface ProjectSettings {
   cursorSmoothing: boolean
   cursorSize: number // multiplier, 1.0 = default
   clickHighlight: boolean
-  background: string // CSS color
+  cursorType: 'macos' | 'touch'
+  backgroundType: 'solid' | 'gradient' | 'image'
+  backgroundColor: string              // hex color
+  backgroundGradientFrom: string       // hex color
+  backgroundGradientTo: string         // hex color
+  backgroundGradientAngle: number      // 0-360
+  backgroundImageDataUrl: string       // data URL or empty string
   padding: number // pixels
   cornerRadius: number // pixels
+  insetEnabled: boolean
+  insetWidth: number    // px, 1-8
+  insetColor: string    // hex color
+  insetAlpha: number    // 0-1
   shadowEnabled: boolean
-  shadowBlur: number
+  shadowBlur: number       // 0-80
+  shadowIntensity: number  // 0-1 opacity
+  shadowAngle: number      // 0-360 degrees
+  shadowDistance: number    // 0-40 px offset
+  shadowIsDirectional: boolean
   screenSpringStiffness: number
   screenSpringDamping: number
   screenSpringMass: number

@@ -112,7 +112,7 @@ export function VideoPreview(props: VideoPreviewProps) {
       ) : (
         <div
           className="mb-8 w-96 h-52 rounded-2xl border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black/60 relative overflow-hidden"
-          style={{ background: settings.background, borderRadius: settings.cornerRadius }}
+          style={{ background: settings.backgroundColor, borderRadius: settings.cornerRadius }}
         >
           <div className="flex flex-col items-center gap-3 text-zinc-600">
             <svg width="44" height="44" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
