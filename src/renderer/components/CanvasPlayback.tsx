@@ -10,6 +10,7 @@ interface CanvasPlaybackProps {
   isPlaying: boolean
   onPlayingChange: (playing: boolean) => void
   settings: ProjectSettings
+  ghostMs: number | null
 }
 
 export function CanvasPlayback({
@@ -20,6 +21,7 @@ export function CanvasPlayback({
   isPlaying,
   onPlayingChange,
   settings,
+  ghostMs,
 }: CanvasPlaybackProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -163,15 +165,21 @@ export function CanvasPlayback({
     }
   }, [drawFrame, onPlayheadChange, onPlayingChange])
 
-  // Seek video when playheadMs changes externally (timeline click/scrub)
+  // Seek video when playheadMs or ghostMs changes externally (timeline hover/click)
+  // Ghost scrubbing uses fastSeek for performance; committed seeks use precise currentTime
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-    if (Math.abs(playheadMs - lastReportedRef.current) > 1) {
-      video.currentTime = playheadMs / 1000
-      lastReportedRef.current = playheadMs
+    const targetMs = ghostMs ?? playheadMs
+    if (Math.abs(targetMs - lastReportedRef.current) > 1) {
+      if (ghostMs != null && typeof video.fastSeek === 'function') {
+        video.fastSeek(targetMs / 1000)
+      } else {
+        video.currentTime = targetMs / 1000
+      }
+      lastReportedRef.current = targetMs
     }
-  }, [playheadMs])
+  }, [playheadMs, ghostMs])
 
   // Play / pause
   useEffect(() => {

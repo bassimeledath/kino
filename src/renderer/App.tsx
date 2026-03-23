@@ -32,6 +32,7 @@ function App() {
   const [exportDone, setExportDone] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [ghostMs, setGhostMs] = useState<number | null>(null)
   const [zoomEvents, setZoomEvents] = useState<ZoomEvent[]>([])
   const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null)
   const [recordingMetadata, setRecordingMetadata] = useState<RecordingMetadata | null>(null)
@@ -309,6 +310,7 @@ function App() {
             onPlayheadChange={setPlayheadMs}
             isPlaying={isPlaying}
             onPlayingChange={setIsPlaying}
+            ghostMs={ghostMs}
           />
 
           <div className="flex items-center justify-center gap-2.5">
@@ -417,6 +419,7 @@ function App() {
         hasRecorded={hasRecorded}
         recordDuration={recordDuration}
         playheadMs={playheadMs}
+        ghostMs={ghostMs}
         selectedSegmentId={selectedSegmentId}
         selectedZoomId={selectedZoomId}
         segments={segments}
@@ -425,6 +428,7 @@ function App() {
         autoZoomLevel={settings.autoZoomLevel}
         dwellZoomLevel={settings.dwellZoomLevel}
         onSetPlayheadMs={setPlayheadMs}
+        onGhostMsChange={setGhostMs}
         onToggleSegmentSelected={(id) =>
           setSelectedSegmentId((prev) => (prev === id ? null : id))
         }
