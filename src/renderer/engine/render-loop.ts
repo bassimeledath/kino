@@ -91,6 +91,11 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     damping: settings.zoomSpringDamping,
     mass: settings.zoomSpringMass,
   }
+  const zoomOutSpring: SpringParams = {
+    stiffness: settings.zoomOutSpringStiffness,
+    damping: settings.zoomOutSpringDamping,
+    mass: settings.zoomOutSpringMass,
+  }
 
   const intervalId = setInterval(() => {
     const now = performance.now()
@@ -239,7 +244,7 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     }
 
     // Update camera with separate springs for position (screen) and zoom (click)
-    camera.update(tx, ty, targetZoom, dt, positionSpring, zoomSpring)
+    camera.update(tx, ty, targetZoom, dt, positionSpring, zoomSpring, zoomOutSpring)
 
     ctx.fillStyle = settings.background
     ctx.fillRect(0, 0, vw, vh)

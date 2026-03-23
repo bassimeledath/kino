@@ -29,6 +29,9 @@ export interface ProjectSettings {
   zoomSpringStiffness: number
   zoomSpringDamping: number
   zoomSpringMass: number
+  zoomOutSpringStiffness: number
+  zoomOutSpringDamping: number
+  zoomOutSpringMass: number
   snapToEdgesRatio: number
 }
 

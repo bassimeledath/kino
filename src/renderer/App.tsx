@@ -166,7 +166,7 @@ function App() {
         zoomEnabled: settings.autoZoom,
       },
     ])
-    setPlayheadMs(Math.floor(result.duration / 2))
+    setPlayheadMs(0)
     setSelectedSegmentId(null)
     setHasRecorded(true)
     setZoomEvents(result.zoomEvents)
@@ -374,6 +374,9 @@ function App() {
         selectedSegmentId={selectedSegmentId}
         segments={segments}
         zoomEvents={zoomEvents}
+        isPlaying={isPlaying}
+        autoZoomLevel={settings.autoZoomLevel}
+        dwellZoomLevel={settings.dwellZoomLevel}
         onSetPlayheadMs={setPlayheadMs}
         onToggleSegmentSelected={(id) =>
           setSelectedSegmentId((prev) => (prev === id ? null : id))
@@ -381,6 +384,7 @@ function App() {
         onSplit={handleSplit}
         onDeleteSegment={handleDeleteSegment}
         onUpdateSegment={handleUpdateSegment}
+        onPlayingChange={setIsPlaying}
       />
 
       <div className="flex items-center justify-between border-t border-zinc-800/60 bg-zinc-950 px-4 py-2">

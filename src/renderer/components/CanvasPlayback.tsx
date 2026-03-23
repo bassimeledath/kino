@@ -131,12 +131,13 @@ export function CanvasPlayback({
     }
   }, [drawFrame, onPlayheadChange, onPlayingChange])
 
-  // Seek video when playheadMs changes externally (timeline click)
+  // Seek video when playheadMs changes externally (timeline click/scrub)
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-    if (Math.abs(playheadMs - lastReportedRef.current) > 200) {
+    if (Math.abs(playheadMs - lastReportedRef.current) > 1) {
       video.currentTime = playheadMs / 1000
+      lastReportedRef.current = playheadMs
     }
   }, [playheadMs])
 

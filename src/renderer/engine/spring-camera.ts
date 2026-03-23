@@ -20,6 +20,7 @@ export class SpringCamera {
     dt: number,
     positionSpring: SpringParams,
     zoomSpring: SpringParams,
+    zoomOutSpring?: SpringParams,
   ) {
     // Position uses screen movement spring (slow, smooth camera panning)
     const ax = (positionSpring.stiffness * (tx - this.x) - positionSpring.damping * this.vx) / positionSpring.mass
@@ -29,8 +30,10 @@ export class SpringCamera {
     this.x += this.vx * dt
     this.y += this.vy * dt
 
-    // Zoom uses click spring (fast, snappy zoom transitions)
-    const az = (zoomSpring.stiffness * (tz - this.zoom) - zoomSpring.damping * this.vZoom) / zoomSpring.mass
+    // Zoom: asymmetric springs — snappy zoom-in, gentle zoom-out
+    // Direction is based on target vs current: when target < current, we're zooming out
+    const activeZoomSpring = (tz < this.zoom && zoomOutSpring) ? zoomOutSpring : zoomSpring
+    const az = (activeZoomSpring.stiffness * (tz - this.zoom) - activeZoomSpring.damping * this.vZoom) / activeZoomSpring.mass
     this.vZoom += az * dt
     this.zoom += this.vZoom * dt
   }
