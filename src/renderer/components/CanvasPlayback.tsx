@@ -211,7 +211,7 @@ export function CanvasPlayback({
   }, [onPlayheadChange, onPlayingChange])
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" style={{ cursor: 'none' }}>
       <video
         ref={videoRef}
         src={playbackUrl}
@@ -223,7 +223,7 @@ export function CanvasPlayback({
         ref={canvasRef}
         width={800}
         height={450}
-        className="w-full rounded-2xl border border-zinc-800 shadow-2xl cursor-pointer"
+        className="w-full rounded-2xl border border-zinc-800 shadow-2xl"
         onClick={() => onPlayingChange(!isPlaying)}
       />
     </div>

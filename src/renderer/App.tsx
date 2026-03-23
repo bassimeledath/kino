@@ -107,6 +107,7 @@ function App() {
       settings,
       zoomEventsRef,
       recordStartMs: startMsRef.current,
+      drawCustomCursor: false,
     })
 
     return () => {

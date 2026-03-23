@@ -75,7 +75,7 @@ export function VideoPreview(props: VideoPreviewProps) {
       )}
 
       {status === 'recording' ? (
-        <div className="relative mb-6 w-full max-w-2xl">
+        <div className="relative mb-6 w-full max-w-2xl" style={{ cursor: 'none' }}>
           <canvas
             ref={canvasRef}
             width={Math.round((window.screen.width || 1920) * (window.devicePixelRatio || 1))}

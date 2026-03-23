@@ -51,6 +51,7 @@ interface StartRenderLoopInput {
   settings: ProjectSettings
   zoomEventsRef?: MutableRefObject<ZoomEvent[]>
   recordStartMs?: number
+  drawCustomCursor?: boolean
 }
 
 export function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) {
@@ -125,12 +126,12 @@ export function drawBackground(
 }
 
 export function startRenderLoop(input: StartRenderLoopInput): () => void {
-  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, clickedRef, settings, zoomEventsRef, recordStartMs } = input
+  const { canvas, captureVideoRef, camera, cursorNormRef, smoothCursorRef, ripplesRef, clickedRef, settings, zoomEventsRef, recordStartMs, drawCustomCursor = true } = input
   const ctx = canvas.getContext('2d')
   if (!ctx) return () => {}
 
   // Preload cursor image before first frame
-  ensureCursorImage()
+  if (drawCustomCursor) ensureCursorImage()
 
   // Preload background image if configured
   let bgImage: HTMLImageElement | null = null
@@ -394,35 +395,35 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       }
     }
 
-    // Subtle cursor rotation based on horizontal cursor spring velocity
-    const hVel = cursorSpringVx * vw
-    const targetRotation = Math.max(-0.25, Math.min(0.25, hVel * 0.0004))
-    cursorRotation += (targetRotation - cursorRotation) * Math.min(1, 8 * dt)
+    // Cursor drawing — skipped during live recording (system cursor is in captured frames)
+    if (drawCustomCursor) {
+      // Subtle cursor rotation based on horizontal cursor spring velocity
+      const hVel = cursorSpringVx * vw
+      const targetRotation = Math.max(-0.25, Math.min(0.25, hVel * 0.0004))
+      cursorRotation += (targetRotation - cursorRotation) * Math.min(1, 8 * dt)
 
-    if (settings.cursorType === 'macos' && cursorImgLoaded && cursorImg) {
-      // Draw macOS arrow cursor with hotspot at top-left
-      // SVG is 64x64 at 2x, so logical size is 32x32. Scale by cursorSize.
-      const cursorW = 32 * settings.cursorSize
-      const cursorH = 32 * settings.cursorSize
-      ctx.save()
-      ctx.translate(cx, cy)
-      ctx.rotate(cursorRotation)
-      ctx.shadowColor = 'rgba(0,0,0,0.45)'
-      ctx.shadowBlur = 6
-      ctx.shadowOffsetX = 1
-      ctx.shadowOffsetY = 2
-      ctx.drawImage(cursorImg, 0, 0, cursorW, cursorH)
-      ctx.restore()
-    } else {
-      // Fallback: white circle while image loads or for non-macos cursor types
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(cx, cy, 7 * settings.cursorSize, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(255,255,255,0.93)'
-      ctx.shadowColor = 'rgba(0,0,0,0.55)'
-      ctx.shadowBlur = 7
-      ctx.fill()
-      ctx.restore()
+      if (settings.cursorType === 'macos' && cursorImgLoaded && cursorImg) {
+        const cursorW = 32 * settings.cursorSize
+        const cursorH = 32 * settings.cursorSize
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(cursorRotation)
+        ctx.shadowColor = 'rgba(0,0,0,0.45)'
+        ctx.shadowBlur = 6
+        ctx.shadowOffsetX = 1
+        ctx.shadowOffsetY = 2
+        ctx.drawImage(cursorImg, 0, 0, cursorW, cursorH)
+        ctx.restore()
+      } else {
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(cx, cy, 7 * settings.cursorSize, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255,255,255,0.93)'
+        ctx.shadowColor = 'rgba(0,0,0,0.55)'
+        ctx.shadowBlur = 7
+        ctx.fill()
+        ctx.restore()
+      }
     }
 
   }, 16)
