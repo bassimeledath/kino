@@ -148,6 +148,47 @@ export function SettingsPanel(props: SettingsPanelProps) {
             />
           )}
 
+          <div className="flex items-center justify-between py-0.5">
+            <label className="text-[11px] font-medium text-zinc-400">Inset Border</label>
+            <Toggle
+              checked={settings.insetEnabled}
+              onChange={(v) => updateSettings({ insetEnabled: v })}
+            />
+          </div>
+
+          {settings.insetEnabled && (
+            <>
+              <Slider
+                value={settings.insetWidth}
+                min={1} max={8} step={0.5}
+                onChange={(v) => updateSettings({ insetWidth: v })}
+                label="Border Width"
+                format={(v) => `${v}px`}
+              />
+
+              <Slider
+                value={settings.insetAlpha}
+                min={0} max={1} step={0.01}
+                onChange={(v) => updateSettings({ insetAlpha: v })}
+                label="Border Opacity"
+                format={(v) => `${Math.round(v * 100)}%`}
+              />
+
+              <div>
+                <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">Border Color</label>
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="color"
+                    value={settings.insetColor}
+                    onChange={(e) => updateSettings({ insetColor: e.target.value })}
+                    className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                  />
+                  <span className="text-[11px] text-zinc-600 font-mono">{settings.insetColor}</span>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* ── Zoom & Cursor ── */}
           <SectionHeader>Zoom & Cursor</SectionHeader>
 

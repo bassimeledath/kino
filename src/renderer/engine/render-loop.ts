@@ -303,6 +303,21 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       }
       ctx.drawImage(video, 0, 0, videoW, videoH)
       ctx.restore()
+
+      // Draw inset border on top of the video frame
+      if (settings.insetEnabled && settings.insetWidth > 0) {
+        ctx.save()
+        const hex = settings.insetColor
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${settings.insetAlpha})`
+        ctx.lineWidth = settings.insetWidth
+        const halfLW = settings.insetWidth / 2
+        roundedRectPath(ctx, pad + halfLW, pad + halfLW, videoW - settings.insetWidth, videoH - settings.insetWidth, Math.max(0, settings.cornerRadius - halfLW))
+        ctx.stroke()
+        ctx.restore()
+      }
     }
 
     if (settings.clickHighlight) {
