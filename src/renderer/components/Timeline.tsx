@@ -7,6 +7,7 @@ interface TimelineProps {
   recordDuration: number
   playheadMs: number
   selectedSegmentId: string | null
+  selectedZoomId: string | null
   segments: TimelineSegment[]
   zoomEvents: ZoomEvent[]
   isPlaying: boolean
@@ -18,6 +19,10 @@ interface TimelineProps {
   onDeleteSegment: () => void
   onUpdateSegment: (id: string, updates: Partial<TimelineSegment>) => void
   onPlayingChange: (playing: boolean) => void
+  onSelectZoom: (id: string) => void
+  onAddZoomRange: (startMs: number) => void
+  onRemoveZoomRange: (id: string) => void
+  onUpdateZoomRange: (id: string, updates: Partial<ZoomEvent>) => void
 }
 
 export function Timeline(props: TimelineProps) {
@@ -26,21 +31,27 @@ export function Timeline(props: TimelineProps) {
     recordDuration,
     playheadMs,
     selectedSegmentId,
+    selectedZoomId,
     segments,
     zoomEvents,
     isPlaying,
-    autoZoomLevel,
-    dwellZoomLevel,
     onSetPlayheadMs,
     onToggleSegmentSelected,
     onSplit,
     onDeleteSegment,
     onUpdateSegment,
     onPlayingChange,
+    onSelectZoom,
+    onAddZoomRange,
+    onUpdateZoomRange,
   } = props
 
   const [trimDrag, setTrimDrag] = useState<{
     segmentId: string
+    side: 'left' | 'right'
+  } | null>(null)
+  const [zoomTrimDrag, setZoomTrimDrag] = useState<{
+    zoomId: string
     side: 'left' | 'right'
   } | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -86,7 +97,7 @@ export function Timeline(props: TimelineProps) {
     return last ? last.endTime : 0
   }
 
-  // Trim drag handler
+  // Segment trim drag handler
   useEffect(() => {
     if (!trimDrag || !trackRef.current) return
     const track = trackRef.current
@@ -118,6 +129,38 @@ export function Timeline(props: TimelineProps) {
     }
   }, [trimDrag, segments, recordDuration, onUpdateSegment])
 
+  // Zoom trim drag handler
+  useEffect(() => {
+    if (!zoomTrimDrag || !trackRef.current) return
+    const track = trackRef.current
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = track.getBoundingClientRect()
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+      const timeMs = Math.round(visualFracToAbs(frac))
+
+      const evt = zoomEvents.find((z) => z.id === zoomTrimDrag.zoomId)
+      if (!evt) return
+
+      if (zoomTrimDrag.side === 'left') {
+        const newStart = Math.max(0, Math.min(timeMs, evt.endMs - 100))
+        onUpdateZoomRange(zoomTrimDrag.zoomId, { startMs: newStart })
+      } else {
+        const newEnd = Math.min(totalDur, Math.max(timeMs, evt.startMs + 100))
+        onUpdateZoomRange(zoomTrimDrag.zoomId, { endMs: newEnd })
+      }
+    }
+
+    const handleMouseUp = () => setZoomTrimDrag(null)
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [zoomTrimDrag, zoomEvents, recordDuration, onUpdateZoomRange])
+
   // Smart time ruler ticks
   const ticks = useMemo(() => {
     const dur = visualDuration
@@ -141,11 +184,12 @@ export function Timeline(props: TimelineProps) {
   if (!hasRecorded) return null
 
   const playheadFrac = absToVisualFrac(playheadMs) * 100
+  const isDragging = !!trimDrag || !!zoomTrimDrag
 
   // Hover scrub — move mouse over tracks to preview that frame instantly
-  // Only when NOT playing — don't interfere with active playback
+  // Only when NOT playing and not dragging
   const handleTrackMouseMove = (e: React.MouseEvent) => {
-    if (trimDrag) return
+    if (isDragging) return
     if (isPlaying) return
     const rect = trackRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -160,6 +204,16 @@ export function Timeline(props: TimelineProps) {
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     if (isPlaying) onPlayingChange(false)
     onSetPlayheadMs(Math.round(visualFracToAbs(frac)))
+  }
+
+  // Click on empty space in zoom track to add a manual zoom range
+  const handleZoomTrackClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const ms = Math.round(visualFracToAbs(frac))
+    onAddZoomRange(ms)
   }
 
   return (
@@ -326,42 +380,88 @@ export function Timeline(props: TimelineProps) {
             })()}
           </div>
 
-          {/* Zoom events track — purple/indigo blocks with labels */}
-          {zoomEvents.length > 0 && (
-            <div
-              className="relative rounded-md overflow-hidden border border-violet-500/15"
-              style={{ height: '1.75rem', background: 'rgba(39, 39, 42, 0.25)' }}
-            >
-              {zoomEvents.map((evt, i) => {
-                const leftPct = absToVisualFrac(evt.startMs) * 100
-                const rightPct = absToVisualFrac(evt.endMs) * 100
-                const widthPct = Math.max(rightPct - leftPct, 0.8)
-                const isClick = evt.type === 'click'
-                const level = isClick ? autoZoomLevel : dwellZoomLevel
+          {/* Zoom events track — interactive: teal for manual, purple for auto */}
+          <div
+            className="relative rounded-md overflow-hidden border border-zinc-700/30"
+            style={{ height: '1.75rem', background: 'rgba(39, 39, 42, 0.25)' }}
+            onClick={handleZoomTrackClick}
+          >
+            {zoomEvents.map((evt) => {
+              const leftPct = absToVisualFrac(evt.startMs) * 100
+              const rightPct = absToVisualFrac(evt.endMs) * 100
+              const widthPct = Math.max(rightPct - leftPct, 0.8)
+              const isManual = evt.type === 'manual'
+              const isSelected = evt.id === selectedZoomId
 
-                return (
-                  <div
-                    key={i}
-                    className="absolute inset-y-0.5 rounded flex items-center px-1.5 overflow-hidden pointer-events-none"
-                    style={{
-                      left: `${leftPct}%`,
-                      width: `${widthPct}%`,
-                      background: isClick
-                        ? 'rgba(139, 92, 246, 0.4)'
-                        : 'rgba(99, 102, 241, 0.3)',
-                      borderLeft: `2px solid ${
-                        isClick ? 'rgba(167, 139, 250, 0.6)' : 'rgba(129, 140, 248, 0.5)'
-                      }`,
-                    }}
-                  >
-                    <span className="text-[9px] font-medium text-violet-300/70 truncate whitespace-nowrap">
-                      Zoom {level.toFixed(1)}x {isClick ? 'Click' : 'Auto'}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+              // Color scheme: teal for manual, purple for auto (click/dwell)
+              const bg = isManual
+                ? isSelected ? 'rgba(20, 184, 166, 0.5)' : 'rgba(20, 184, 166, 0.35)'
+                : evt.type === 'click'
+                  ? isSelected ? 'rgba(139, 92, 246, 0.5)' : 'rgba(139, 92, 246, 0.35)'
+                  : isSelected ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.25)'
+
+              const borderColor = isManual
+                ? 'rgba(45, 212, 191, 0.6)'
+                : evt.type === 'click'
+                  ? 'rgba(167, 139, 250, 0.6)'
+                  : 'rgba(129, 140, 248, 0.5)'
+
+              const textColor = isManual ? 'text-teal-300/80' : 'text-violet-300/70'
+              const label = isManual ? 'Manual' : evt.type === 'click' ? 'Click' : 'Dwell'
+
+              return (
+                <div
+                  key={evt.id}
+                  className={`absolute inset-y-0.5 rounded flex items-center px-1.5 overflow-hidden cursor-pointer transition-all duration-75 ${
+                    isSelected ? 'ring-1 ring-inset' : ''
+                  }`}
+                  style={{
+                    left: `${leftPct}%`,
+                    width: `${widthPct}%`,
+                    background: bg,
+                    borderLeft: `2px solid ${borderColor}`,
+                    ...(isSelected ? {
+                      '--tw-ring-color': isManual ? 'rgba(45, 212, 191, 0.7)' : 'rgba(167, 139, 250, 0.7)',
+                    } as React.CSSProperties : {}),
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelectZoom(evt.id)
+                  }}
+                >
+                  {/* Zoom level label */}
+                  <span className={`text-[9px] font-medium ${textColor} truncate whitespace-nowrap pointer-events-none`}>
+                    {evt.zoomLevel.toFixed(1)}x {label}
+                  </span>
+                  {/* Trim handles — only for manual zoom ranges */}
+                  {isManual && (
+                    <>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-l hover:bg-teal-400/25"
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          setZoomTrimDrag({ zoomId: evt.id, side: 'left' })
+                        }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-r hover:bg-teal-400/25"
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          setZoomTrimDrag({ zoomId: evt.id, side: 'right' })
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+              )
+            })}
+            {/* Empty state hint */}
+            {zoomEvents.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-[9px] text-zinc-600">Click to add zoom range</span>
+              </div>
+            )}
+          </div>
 
           {/* Playhead — blue dot + vertical line spanning all tracks */}
           <div

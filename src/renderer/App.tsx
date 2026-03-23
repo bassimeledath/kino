@@ -33,6 +33,7 @@ function App() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [zoomEvents, setZoomEvents] = useState<ZoomEvent[]>([])
+  const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null)
   const [recordingMetadata, setRecordingMetadata] = useState<RecordingMetadata | null>(null)
 
   const { playbackUrl, clearPlayback, setPlaybackFromChunks } = usePlayback()
@@ -206,14 +207,58 @@ function App() {
   }, [selectedSegmentId])
 
   useHotkeys('s', handleSplit, { enabled: hasRecorded, preventDefault: true })
-  useHotkeys('delete,backspace', handleDeleteSegment, {
-    enabled: !!selectedSegmentId,
-    preventDefault: true,
-  })
+  useHotkeys(
+    'delete,backspace',
+    () => {
+      if (selectedZoomId) {
+        handleRemoveZoomRange(selectedZoomId)
+      } else if (selectedSegmentId) {
+        handleDeleteSegment()
+      }
+    },
+    {
+      enabled: !!selectedSegmentId || !!selectedZoomId,
+      preventDefault: true,
+    },
+  )
 
   const handleUpdateSegment = useCallback(
     (id: string, updates: Partial<TimelineSegment>) => {
       setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
+    },
+    [],
+  )
+
+  const handleAddZoomRange = useCallback(
+    (startMs: number) => {
+      const duration = 2000
+      const endMs = Math.min(startMs + duration, recordDuration)
+      const newZoom: ZoomEvent = {
+        id: genId(),
+        startMs,
+        endMs,
+        type: 'manual',
+        zoomLevel: settings.autoZoomLevel,
+      }
+      setZoomEvents((prev) => [...prev, newZoom].sort((a, b) => a.startMs - b.startMs))
+      setSelectedZoomId(newZoom.id)
+    },
+    [recordDuration, settings.autoZoomLevel],
+  )
+
+  const handleRemoveZoomRange = useCallback(
+    (id: string) => {
+      setZoomEvents((prev) => prev.filter((e) => e.id !== id))
+      if (selectedZoomId === id) setSelectedZoomId(null)
+    },
+    [selectedZoomId],
+  )
+
+  const handleUpdateZoomRange = useCallback(
+    (id: string, updates: Partial<ZoomEvent>) => {
+      setZoomEvents((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+      )
     },
     [],
   )
@@ -373,6 +418,7 @@ function App() {
         recordDuration={recordDuration}
         playheadMs={playheadMs}
         selectedSegmentId={selectedSegmentId}
+        selectedZoomId={selectedZoomId}
         segments={segments}
         zoomEvents={zoomEvents}
         isPlaying={isPlaying}
@@ -386,6 +432,10 @@ function App() {
         onDeleteSegment={handleDeleteSegment}
         onUpdateSegment={handleUpdateSegment}
         onPlayingChange={setIsPlaying}
+        onSelectZoom={(id) => setSelectedZoomId((prev) => (prev === id ? null : id))}
+        onAddZoomRange={handleAddZoomRange}
+        onRemoveZoomRange={handleRemoveZoomRange}
+        onUpdateZoomRange={handleUpdateZoomRange}
       />
 
       <div className="flex items-center justify-between border-t border-zinc-800/60 bg-zinc-950 px-4 py-2">
@@ -425,6 +475,9 @@ function App() {
               <span className="w-px h-3 bg-zinc-800" />
               <span className="text-cyan-600">{zoomEvents.filter(e => e.type === 'click').length} click zooms</span>
               <span className="text-violet-600">{zoomEvents.filter(e => e.type === 'dwell').length} dwell zooms</span>
+              {zoomEvents.some(e => e.type === 'manual') && (
+                <span className="text-teal-600">{zoomEvents.filter(e => e.type === 'manual').length} manual zooms</span>
+              )}
             </>
           )}
         </div>

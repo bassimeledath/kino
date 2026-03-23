@@ -77,7 +77,11 @@ export interface TimelineSegment {
 }
 
 export interface ZoomEvent {
+  id: string
   startMs: number
   endMs: number
-  type: 'click' | 'dwell'
+  type: 'click' | 'dwell' | 'manual'
+  zoomLevel: number
+  targetX?: number
+  targetY?: number
 }

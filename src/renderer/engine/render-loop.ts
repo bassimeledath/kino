@@ -270,10 +270,15 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
         currentZoomStartMs = elapsedMs
       } else if (!isZooming && wasZooming) {
         const type = prevZoomState.startsWith('CLICK') ? 'click' : 'dwell'
+        const level = type === 'click' ? settings.autoZoomLevel : settings.dwellZoomLevel
         zoomEventsRef.current.push({
+          id: crypto.randomUUID(),
           startMs: currentZoomStartMs,
           endMs: elapsedMs,
           type: type as 'click' | 'dwell',
+          zoomLevel: level,
+          targetX: smoothX,
+          targetY: smoothY,
         })
       }
       prevZoomState = zoomState
