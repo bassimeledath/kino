@@ -37,6 +37,8 @@ function App() {
   const [zoomEvents, setZoomEvents] = useState<ZoomEvent[]>([])
   const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null)
   const [recordingMetadata, setRecordingMetadata] = useState<RecordingMetadata | null>(null)
+  const [durationOverride, setDurationOverride] = useState<number | null>(null)
+  const toolbarChunksRef = useRef<Blob[] | null>(null)
 
   const { playbackUrl, clearPlayback, setPlaybackFromChunks } = usePlayback()
   const {
@@ -50,6 +52,36 @@ function App() {
     zoomEventsRef,
     startMsRef,
   } = useRecording({ settings, setStatus })
+
+  const effectiveDuration = durationOverride ?? recordDuration
+
+  // Load toolbar recording data on mount (when editor opens after toolbar recording)
+  useEffect(() => {
+    if (typeof window.kino?.getToolbarRecording !== 'function') return
+    let cancelled = false
+
+    window.kino.getToolbarRecording().then((data) => {
+      if (cancelled || !data) return
+
+      const blob = new Blob([data.data], { type: 'video/webm' })
+      toolbarChunksRef.current = [blob]
+      setPlaybackFromChunks([blob])
+      setDurationOverride(data.duration)
+      setHasRecorded(true)
+      setSegments([{
+        id: genId(),
+        startTime: 0,
+        endTime: data.duration,
+        deleted: false,
+        speed: 1,
+        zoomEnabled: settings.autoZoom,
+      }])
+      setZoomEvents(data.zoomEvents as ZoomEvent[])
+      setRecordingMetadata(data.metadata as RecordingMetadata)
+    })
+
+    return () => { cancelled = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cameraRef = useRef(new SpringCamera())
   const cursorNormRef = useRef({ x: 0.5, y: 0.5 })
@@ -152,6 +184,8 @@ function App() {
     setExportProgress(null)
     setZoomEvents([])
     setRecordingMetadata(null)
+    setDurationOverride(null)
+    toolbarChunksRef.current = null
 
     await startRecording()
   }, [clearPlayback, startRecording])
@@ -178,7 +212,7 @@ function App() {
   }, [setPlaybackFromChunks, settings.autoZoom, stopRecording])
 
   const handleSplit = useCallback(() => {
-    if (!hasRecorded || recordDuration === 0) return
+    if (!hasRecorded || effectiveDuration === 0) return
 
     setSegments((prev) => {
       const seg = prev.find(
@@ -196,7 +230,7 @@ function App() {
         { ...seg, id: genId(), startTime: playheadMs },
       ]
     })
-  }, [hasRecorded, playheadMs, recordDuration])
+  }, [hasRecorded, playheadMs, effectiveDuration])
 
   const handleDeleteSegment = useCallback(() => {
     if (!selectedSegmentId) return
@@ -234,7 +268,7 @@ function App() {
   const handleAddZoomRange = useCallback(
     (startMs: number) => {
       const duration = 2000
-      const endMs = Math.min(startMs + duration, recordDuration)
+      const endMs = Math.min(startMs + duration, effectiveDuration)
       const newZoom: ZoomEvent = {
         id: genId(),
         startMs,
@@ -245,7 +279,7 @@ function App() {
       setZoomEvents((prev) => [...prev, newZoom].sort((a, b) => a.startMs - b.startMs))
       setSelectedZoomId(newZoom.id)
     },
-    [recordDuration, settings.autoZoomLevel],
+    [effectiveDuration, settings.autoZoomLevel],
   )
 
   const handleRemoveZoomRange = useCallback(
@@ -272,7 +306,7 @@ function App() {
     setExportError(null)
     setExportProgress(0)
 
-    const chunks = getChunks()
+    const chunks = toolbarChunksRef.current ?? getChunks()
     if (chunks.length === 0) {
       setExportProgress(null)
       setExportError('No recording data available to export.')
@@ -301,7 +335,7 @@ function App() {
             status={status}
             hasRecorded={hasRecorded}
             countdownValue={countdownValue}
-            recordDuration={recordDuration}
+            recordDuration={status === 'recording' ? recordDuration : effectiveDuration}
             settings={settings}
             playbackUrl={playbackUrl}
             captureVideoRef={captureVideoRef}

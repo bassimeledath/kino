@@ -5,7 +5,16 @@ import type {
   ExportDoneResult,
   ExportStartConfig,
   RecordingStatus,
+  ZoomEvent,
 } from '../shared/types'
+import type { RecordingMetadata } from './hooks/useRecording'
+
+interface ToolbarRecordingPayload {
+  data: ArrayBuffer
+  duration: number
+  metadata: RecordingMetadata
+  zoomEvents: ZoomEvent[]
+}
 
 interface KinoAPI {
   getSources: () => Promise<Array<{
@@ -22,10 +31,10 @@ interface KinoAPI {
   onExportProgress: (cb: (progress: number) => void) => () => void
   onExportDone: (cb: (result: ExportDoneResult) => void) => () => void
   onCursorData: (cb: (frame: CursorFrame) => void) => () => void
-  // Toolbar-specific
-  toolbarStartRecording: () => void
-  toolbarStopRecording: () => void
-  onToolbarTimer: (cb: (elapsedMs: number) => void) => () => void
+  // Toolbar
+  sendToolbarRecording: (payload: ToolbarRecordingPayload) => Promise<{ ok: boolean; error?: string }>
+  getToolbarRecording: () => Promise<ToolbarRecordingPayload | null>
+  closeToolbar: () => void
 }
 
 interface Window {

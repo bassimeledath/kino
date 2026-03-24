@@ -43,12 +43,10 @@ contextBridge.exposeInMainWorld('kino', {
     return () => ipcRenderer.removeListener(Channels.CURSOR_DATA, handler)
   },
 
-  // Toolbar-specific
-  toolbarStartRecording: () => ipcRenderer.send(Channels.TOOLBAR_START_RECORDING),
-  toolbarStopRecording: () => ipcRenderer.send(Channels.TOOLBAR_STOP_RECORDING),
-  onToolbarTimer: (cb: (elapsedMs: number) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, ms: number) => cb(ms)
-    ipcRenderer.on(Channels.TOOLBAR_RECORDING_TIMER, handler)
-    return () => ipcRenderer.removeListener(Channels.TOOLBAR_RECORDING_TIMER, handler)
-  },
+  // Toolbar
+  sendToolbarRecording: (payload: unknown) =>
+    ipcRenderer.invoke(Channels.TOOLBAR_RECORDING_COMPLETE, payload),
+  getToolbarRecording: () =>
+    ipcRenderer.invoke(Channels.GET_TOOLBAR_RECORDING),
+  closeToolbar: () => ipcRenderer.send(Channels.TOOLBAR_CLOSE),
 })

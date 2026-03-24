@@ -48,11 +48,18 @@ function compileClickMonitor(): boolean {
 let mainWindow: BrowserWindow | null = null
 let toolbarWindow: BrowserWindow | null = null
 let cursorInterval: ReturnType<typeof setInterval> | null = null
-let toolbarTimerInterval: ReturnType<typeof setInterval> | null = null
 let clickProcess: ReturnType<typeof spawn> | null = null
 let isMouseDown = false
 let recordingStartTime = 0
 const cursorLog: CursorFrame[] = []
+
+// Storage for recording data passed from toolbar to editor
+let toolbarRecordingData: {
+  buffer: Buffer
+  duration: number
+  metadata: unknown
+  zoomEvents: unknown[]
+} | null = null
 
 function sendRecordingStatus(status: RecordingStatus) {
   mainWindow?.webContents.send(Channels.RECORDING_STATUS, status)
@@ -60,24 +67,36 @@ function sendRecordingStatus(status: RecordingStatus) {
 }
 
 function createToolbarWindow(): BrowserWindow {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth } = primaryDisplay.workAreaSize
+  const toolbarWidth = 260
+  const toolbarHeight = 72
+
   const win = new BrowserWindow({
-    width: 200,
-    height: 56,
+    width: toolbarWidth,
+    height: toolbarHeight,
+    x: Math.round((screenWidth - toolbarWidth) / 2),
+    y: 24,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    hasShadow: true,
+    hasShadow: false,
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    roundedCorners: true,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      backgroundThrottling: false, // CRITICAL: keep canvas rendering during recording
     },
   })
 
+  win.setContentProtection(true) // Exclude from screen capture
   win.setVisibleOnAllWorkspaces(true)
 
   if (process.env.NODE_ENV === 'development') {
@@ -106,6 +125,27 @@ function exportDataToBuffer(raw: unknown): Buffer | null {
   }
   if (Array.isArray(raw)) return Buffer.from(raw)
   return null
+}
+
+function stopCursorTracking() {
+  if (cursorInterval) {
+    clearInterval(cursorInterval)
+    cursorInterval = null
+  }
+  if (clickProcess) {
+    clickProcess.kill()
+    clickProcess = null
+  }
+  isMouseDown = false
+}
+
+function saveCursorLog() {
+  const benchDir = join(__dirname, '../../benchmarks')
+  mkdirSync(benchDir, { recursive: true })
+  const ts = new Date().toISOString().replace(/[:.]/g, '-')
+  const timestampedPath = join(benchDir, `cursor-log-${ts}.json`)
+  writeFileSync(timestampedPath, JSON.stringify(cursorLog))
+  writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog))
 }
 
 function createMainWindow(): BrowserWindow {
@@ -174,6 +214,7 @@ app.whenReady().then(() => {
   })
 
   // IPC: Recording start — kick off cursor tracking at ~60Hz
+  // Used by BOTH toolbar and editor windows via useRecording hook
   ipcMain.on(Channels.RECORDING_START, () => {
     cursorLog.length = 0
     recordingStartTime = Date.now()
@@ -201,7 +242,9 @@ app.whenReady().then(() => {
         click: isMouseDown,
       }
       cursorLog.push(frame)
+      // Send cursor data to whichever window is active
       mainWindow?.webContents.send(Channels.CURSOR_DATA, frame)
+      toolbarWindow?.webContents.send(Channels.CURSOR_DATA, frame)
     }, 16) // ~60Hz
 
     sendRecordingStatus('recording')
@@ -209,25 +252,73 @@ app.whenReady().then(() => {
 
   // IPC: Recording stop — stop cursor tracking and click monitor
   ipcMain.on(Channels.RECORDING_STOP, () => {
-    if (cursorInterval) {
-      clearInterval(cursorInterval)
-      cursorInterval = null
-    }
-    if (clickProcess) {
-      clickProcess.kill()
-      clickProcess = null
-    }
-    isMouseDown = false
-
-    // Save cursor log to benchmarks/ with timestamp (and latest symlink)
-    const benchDir = join(__dirname, '../../benchmarks')
-    mkdirSync(benchDir, { recursive: true })
-    const ts = new Date().toISOString().replace(/[:.]/g, '-')
-    const timestampedPath = join(benchDir, `cursor-log-${ts}.json`)
-    writeFileSync(timestampedPath, JSON.stringify(cursorLog))
-    writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog)) // keep latest too
-
+    stopCursorTracking()
+    saveCursorLog()
     sendRecordingStatus('idle')
+  })
+
+  // IPC: Toolbar sends completed recording data — save it, close toolbar, open editor
+  ipcMain.handle(Channels.TOOLBAR_RECORDING_COMPLETE, async (_event, payload: {
+    data: ArrayBuffer
+    duration: number
+    metadata: unknown
+    zoomEvents: unknown[]
+  }) => {
+    const buffer = exportDataToBuffer(payload.data)
+    if (!buffer || buffer.byteLength === 0) {
+      return { ok: false, error: 'No recording data received' }
+    }
+
+    console.log('[toolbar] recording complete', {
+      bytes: buffer.byteLength,
+      duration: payload.duration,
+    })
+
+    // Store recording data for the editor to pick up
+    toolbarRecordingData = {
+      buffer,
+      duration: payload.duration,
+      metadata: payload.metadata,
+      zoomEvents: payload.zoomEvents,
+    }
+
+    // Close toolbar window
+    if (toolbarWindow && !toolbarWindow.isDestroyed()) {
+      toolbarWindow.close()
+      toolbarWindow = null
+    }
+
+    // Open the editor window
+    mainWindow = createMainWindow()
+
+    return { ok: true }
+  })
+
+  // IPC: Editor requests toolbar recording data
+  ipcMain.handle(Channels.GET_TOOLBAR_RECORDING, async () => {
+    if (!toolbarRecordingData) return null
+
+    const result = {
+      data: toolbarRecordingData.buffer.buffer.slice(
+        toolbarRecordingData.buffer.byteOffset,
+        toolbarRecordingData.buffer.byteOffset + toolbarRecordingData.buffer.byteLength,
+      ),
+      duration: toolbarRecordingData.duration,
+      metadata: toolbarRecordingData.metadata,
+      zoomEvents: toolbarRecordingData.zoomEvents,
+    }
+
+    // Clear after reading — one-shot transfer
+    toolbarRecordingData = null
+    return result
+  })
+
+  // IPC: Toolbar close button
+  ipcMain.on(Channels.TOOLBAR_CLOSE, () => {
+    if (toolbarWindow && !toolbarWindow.isDestroyed()) {
+      toolbarWindow.close()
+      toolbarWindow = null
+    }
   })
 
   // IPC: Export — transcode WebM to MP4 via ffmpeg-static
@@ -353,91 +444,6 @@ app.whenReady().then(() => {
     })
   })
 
-  // IPC: Toolbar requests recording start — kick off cursor/click tracking from toolbar
-  ipcMain.on(Channels.TOOLBAR_START_RECORDING, () => {
-    console.log('[toolbar] start recording')
-    cursorLog.length = 0
-    recordingStartTime = Date.now()
-    isMouseDown = false
-
-    // Resize toolbar to show recording controls
-    toolbarWindow?.setSize(280, 56)
-
-    // Start macOS click monitor
-    if (process.platform === 'darwin' && clickMonitorReady) {
-      clickProcess = spawn(CLICK_MONITOR_BIN, [], { stdio: ['ignore', 'pipe', 'ignore'] })
-      clickProcess.stdout!.on('data', (data: Buffer) => {
-        for (const line of data.toString().split('\n')) {
-          if (line === 'down') isMouseDown = true
-          else if (line === 'up') isMouseDown = false
-        }
-      })
-      clickProcess.on('error', () => { clickProcess = null })
-    }
-
-    // Start cursor tracking at ~60Hz
-    if (cursorInterval) clearInterval(cursorInterval)
-    cursorInterval = setInterval(() => {
-      const pos = screen.getCursorScreenPoint()
-      const frame: CursorFrame = {
-        t: Date.now() - recordingStartTime,
-        x: pos.x,
-        y: pos.y,
-        click: isMouseDown,
-      }
-      cursorLog.push(frame)
-      // Send cursor data to main editor window if it exists
-      mainWindow?.webContents.send(Channels.CURSOR_DATA, frame)
-    }, 16)
-
-    // Send elapsed timer to toolbar at ~4Hz
-    if (toolbarTimerInterval) clearInterval(toolbarTimerInterval)
-    toolbarTimerInterval = setInterval(() => {
-      const elapsed = Date.now() - recordingStartTime
-      toolbarWindow?.webContents.send(Channels.TOOLBAR_RECORDING_TIMER, elapsed)
-    }, 250)
-
-    sendRecordingStatus('recording')
-  })
-
-  // IPC: Toolbar requests recording stop — stop tracking, open editor window
-  ipcMain.on(Channels.TOOLBAR_STOP_RECORDING, () => {
-    console.log('[toolbar] stop recording')
-
-    // Stop cursor tracking
-    if (cursorInterval) {
-      clearInterval(cursorInterval)
-      cursorInterval = null
-    }
-    if (toolbarTimerInterval) {
-      clearInterval(toolbarTimerInterval)
-      toolbarTimerInterval = null
-    }
-    if (clickProcess) {
-      clickProcess.kill()
-      clickProcess = null
-    }
-    isMouseDown = false
-
-    // Save cursor log
-    const benchDir = join(__dirname, '../../benchmarks')
-    mkdirSync(benchDir, { recursive: true })
-    const ts = new Date().toISOString().replace(/[:.]/g, '-')
-    const timestampedPath = join(benchDir, `cursor-log-${ts}.json`)
-    writeFileSync(timestampedPath, JSON.stringify(cursorLog))
-    writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog))
-
-    sendRecordingStatus('idle')
-
-    // Phase 3: Close toolbar, open the full editor window
-    if (toolbarWindow && !toolbarWindow.isDestroyed()) {
-      toolbarWindow.close()
-      toolbarWindow = null
-    }
-
-    mainWindow = createMainWindow()
-  })
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       toolbarWindow = createToolbarWindow()
@@ -447,7 +453,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (cursorInterval) clearInterval(cursorInterval)
-  if (toolbarTimerInterval) clearInterval(toolbarTimerInterval)
   if (clickProcess) clickProcess.kill()
   app.quit()
 })

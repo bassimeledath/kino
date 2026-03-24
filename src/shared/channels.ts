@@ -8,8 +8,8 @@ export const Channels = {
   EXPORT_PROGRESS: 'export:progress',
   EXPORT_DONE: 'export:done',
   PERMISSIONS_CHECK: 'permissions:check',
-  // Toolbar phase transitions
-  TOOLBAR_START_RECORDING: 'toolbar:start-recording',
-  TOOLBAR_STOP_RECORDING: 'toolbar:stop-recording',
-  TOOLBAR_RECORDING_TIMER: 'toolbar:recording-timer',
+  // Toolbar
+  TOOLBAR_RECORDING_COMPLETE: 'toolbar:recording-complete',
+  GET_TOOLBAR_RECORDING: 'toolbar:get-recording',
+  TOOLBAR_CLOSE: 'toolbar:close',
 } as const
