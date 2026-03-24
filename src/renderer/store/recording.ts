@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { isRecordingStatus } from '../../shared/types'
 import type { ProjectSettings, RecordingStatus } from '../../shared/types'
 
 interface RecordingStore {
@@ -35,7 +34,7 @@ const defaultSettings: ProjectSettings = {
   shadowEnabled: true,
   shadowBlur: 40,
   shadowIntensity: 0.5,
-  shadowAngle: 180,
+  shadowAngle: 90,
   shadowDistance: 8,
   shadowIsDirectional: true,
   screenSpringStiffness: 200,
@@ -61,17 +60,3 @@ export const useRecordingStore = create<RecordingStore>((set) => ({
     set((state) => ({ settings: { ...state.settings, ...partial } })),
 }))
 
-// Listen for status updates from main process
-if (typeof window !== 'undefined' && window.kino) {
-  try {
-    window.kino.onRecordingStatus((status) => {
-      if (!isRecordingStatus(status)) {
-        console.warn('[recording-store] ignored invalid recording status', status)
-        return
-      }
-      useRecordingStore.getState().setStatus(status)
-    })
-  } catch {
-    // IPC listener setup failed gracefully
-  }
-}

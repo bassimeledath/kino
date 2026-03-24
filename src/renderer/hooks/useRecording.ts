@@ -64,7 +64,7 @@ export function useRecording(input: UseRecordingInput) {
     for (let i = 3; i >= 1; i -= 1) {
       if (countdownAbortRef.current) return false
       setCountdownValue(i)
-      await new Promise<void>((resolve) => setTimeout(resolve, 800))
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000))
     }
 
     if (countdownAbortRef.current) return false

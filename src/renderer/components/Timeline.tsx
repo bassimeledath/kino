@@ -47,6 +47,7 @@ export function Timeline(props: TimelineProps) {
     onPlayingChange,
     onSelectZoom,
     onAddZoomRange,
+    onRemoveZoomRange,
     onUpdateZoomRange,
   } = props
 
@@ -164,6 +165,18 @@ export function Timeline(props: TimelineProps) {
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [zoomTrimDrag, zoomEvents, recordDuration, onUpdateZoomRange])
+
+  // Delete key removes selected zoom event
+  useEffect(() => {
+    if (!selectedZoomId) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        onRemoveZoomRange(selectedZoomId)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedZoomId, onRemoveZoomRange])
 
   // Smart time ruler ticks
   const ticks = useMemo(() => {
@@ -445,25 +458,21 @@ export function Timeline(props: TimelineProps) {
                   <span className={`text-[9px] font-medium ${textColor} truncate whitespace-nowrap pointer-events-none`}>
                     {evt.zoomLevel.toFixed(1)}x {label}
                   </span>
-                  {/* Trim handles — only for manual zoom ranges */}
-                  {isManual && (
-                    <>
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-l hover:bg-teal-400/25"
-                        onMouseDown={(e) => {
-                          e.stopPropagation()
-                          setZoomTrimDrag({ zoomId: evt.id, side: 'left' })
-                        }}
-                      />
-                      <div
-                        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-r hover:bg-teal-400/25"
-                        onMouseDown={(e) => {
-                          e.stopPropagation()
-                          setZoomTrimDrag({ zoomId: evt.id, side: 'right' })
-                        }}
-                      />
-                    </>
-                  )}
+                  {/* Trim handles — all zoom event types */}
+                  <div
+                    className={`absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-l ${isManual ? 'hover:bg-teal-400/25' : 'hover:bg-violet-400/25'}`}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      setZoomTrimDrag({ zoomId: evt.id, side: 'left' })
+                    }}
+                  />
+                  <div
+                    className={`absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-r ${isManual ? 'hover:bg-teal-400/25' : 'hover:bg-violet-400/25'}`}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      setZoomTrimDrag({ zoomId: evt.id, side: 'right' })
+                    }}
+                  />
                 </div>
               )
             })}

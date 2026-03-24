@@ -125,7 +125,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                   type="color"
                   value={settings.backgroundColor}
                   onChange={(e) => updateSettings({ backgroundColor: e.target.value })}
-                  className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                  className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent focus-visible:ring-2 focus-visible:ring-white/15"
                 />
                 <span className="text-[11px] text-zinc-600 font-mono">{settings.backgroundColor}</span>
               </div>
@@ -139,7 +139,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                       type="color"
                       value={settings.backgroundGradientFrom}
                       onChange={(e) => updateSettings({ backgroundGradientFrom: e.target.value })}
-                      className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                      className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent focus-visible:ring-2 focus-visible:ring-white/15"
                     />
                     <span className="text-[11px] text-zinc-600">From</span>
                   </div>
@@ -148,7 +148,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                       type="color"
                       value={settings.backgroundGradientTo}
                       onChange={(e) => updateSettings({ backgroundGradientTo: e.target.value })}
-                      className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                      className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent focus-visible:ring-2 focus-visible:ring-white/15"
                     />
                     <span className="text-[11px] text-zinc-600">To</span>
                   </div>
@@ -297,7 +297,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     type="color"
                     value={settings.insetColor}
                     onChange={(e) => updateSettings({ insetColor: e.target.value })}
-                    className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent"
+                    className="w-7 h-7 rounded-md cursor-pointer border border-zinc-700 bg-transparent focus-visible:ring-2 focus-visible:ring-white/15"
                   />
                   <span className="text-[11px] text-zinc-600 font-mono">{settings.insetColor}</span>
                 </div>

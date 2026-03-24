@@ -180,7 +180,12 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
     mass: settings.zoomOutSpringMass,
   }
 
-  const intervalId = setInterval(() => {
+  let rafId = 0
+  let running = true
+
+  const tick = () => {
+    if (!running) return
+
     const now = performance.now()
     const dt = Math.min((now - lastFrameMs) / 1000, 0.1)
     lastFrameMs = now
@@ -431,9 +436,13 @@ export function startRenderLoop(input: StartRenderLoopInput): () => void {
       }
     }
 
-  }, 16)
+    rafId = requestAnimationFrame(tick)
+  }
+
+  rafId = requestAnimationFrame(tick)
 
   return () => {
-    clearInterval(intervalId)
+    running = false
+    cancelAnimationFrame(rafId)
   }
 }

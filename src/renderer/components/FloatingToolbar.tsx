@@ -127,9 +127,7 @@ export function FloatingToolbar() {
     window.kino.closeToolbar()
   }, [])
 
-  const isRecording = status === 'recording'
-  const isCountdown = countdownValue !== null
-  const isBusy = isRecording || isCountdown || sending
+  const isBusy = status === 'countdown' || status === 'recording' || sending
 
   const screenW = Math.round((window.screen.width || 1920) * (window.devicePixelRatio || 1))
   const screenH = Math.round((window.screen.height || 1080) * (window.devicePixelRatio || 1))
@@ -176,7 +174,7 @@ export function FloatingToolbar() {
             <span className="flex items-center gap-1.5 px-2 text-[13px] font-normal tabular-nums text-zinc-300"
               style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'SF Mono, ui-monospace, monospace' }}>
               <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" style={{ animation: 'rec-pulse 3s ease-in-out infinite' }} />
-              {isCountdown ? (
+              {countdownValue !== null ? (
                 <span className="text-red-400">{countdownValue}</span>
               ) : sending ? (
                 <span className="text-zinc-500 text-[12px]">Saving...</span>
@@ -192,8 +190,8 @@ export function FloatingToolbar() {
             <button
               data-testid="toolbar-stop-btn"
               onClick={handleStop}
-              disabled={isCountdown || sending}
-              className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+              disabled={status !== 'recording' || sending}
+              className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-40 disabled:pointer-events-none focus-visible:ring-2 focus-visible:ring-white/15"
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
               title="Stop recording"
             >
@@ -217,7 +215,7 @@ export function FloatingToolbar() {
             <button
               data-testid="toolbar-record-btn"
               onClick={handleRecord}
-              className="rounded-lg p-2 text-red-500 transition-all duration-150 hover:bg-white/10 hover:text-red-400 active:scale-95"
+              className="rounded-lg p-2 text-red-500 transition-all duration-150 hover:bg-white/10 hover:text-red-400 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/15"
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
               title="Start recording"
             >
@@ -229,7 +227,7 @@ export function FloatingToolbar() {
             {/* Close button */}
             <button
               onClick={handleClose}
-              className="rounded-lg p-2 text-zinc-500 transition-all duration-150 hover:bg-white/10 hover:text-zinc-300 active:scale-95"
+              className="rounded-lg p-2 text-zinc-500 transition-all duration-150 hover:bg-white/10 hover:text-zinc-300 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/15"
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
               title="Close"
             >
