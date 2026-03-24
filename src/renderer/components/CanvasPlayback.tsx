@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { ProjectSettings, TimelineSegment } from '../../shared/types'
 import { drawBackground, roundedRectPath } from '../engine/render-loop'
 
@@ -25,8 +25,30 @@ export function CanvasPlayback({
 }: CanvasPlaybackProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const lastReportedRef = useRef(0)
   const rafRef = useRef(0)
+
+  // Retina-aware canvas sizing via ResizeObserver
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = Math.round(rect.width * dpr)
+      canvas.height = Math.round(rect.height * dpr)
+      const ctx = canvas.getContext('2d')
+      if (ctx) ctx.scale(dpr, dpr)
+    }
+
+    updateSize()
+    const ro = new ResizeObserver(updateSize)
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [])
 
   const activeSegments = useMemo(
     () => segments.filter((s) => !s.deleted).sort((a, b) => a.startTime - b.startTime),
@@ -61,8 +83,9 @@ export function CanvasPlayback({
     if (!ctx) return
 
     const s = settingsRef.current
-    const vw = canvas.width
-    const vh = canvas.height
+    const dpr = window.devicePixelRatio || 1
+    const vw = canvas.width / dpr
+    const vh = canvas.height / dpr
     const pad = s.padding
     const videoW = vw - 2 * pad
     const videoH = vh - 2 * pad
@@ -219,7 +242,11 @@ export function CanvasPlayback({
   }, [onPlayheadChange, onPlayingChange])
 
   return (
-    <div className="relative w-full" style={{ cursor: 'none' }}>
+    <div
+      ref={containerRef}
+      className="relative w-full"
+      style={{ cursor: 'pointer', aspectRatio: '16 / 9' }}
+    >
       <video
         ref={videoRef}
         src={playbackUrl}
@@ -229,9 +256,8 @@ export function CanvasPlayback({
       />
       <canvas
         ref={canvasRef}
-        width={800}
-        height={450}
-        className="w-full rounded-2xl border border-zinc-800 shadow-2xl"
+        className="w-full h-full border border-zinc-800 shadow-2xl"
+        style={{ borderRadius: `${settings.cornerRadius}px` }}
         onClick={() => onPlayingChange(!isPlaying)}
       />
     </div>

@@ -452,7 +452,7 @@ function App() {
 
       <Timeline
         hasRecorded={hasRecorded}
-        recordDuration={recordDuration}
+        recordDuration={effectiveDuration}
         playheadMs={playheadMs}
         ghostMs={ghostMs}
         selectedSegmentId={selectedSegmentId}

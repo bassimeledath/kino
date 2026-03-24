@@ -77,13 +77,13 @@ export function VideoPreview(props: VideoPreviewProps) {
       )}
 
       {status === 'recording' ? (
-        <div className="relative mb-6 w-full max-w-2xl" style={{ cursor: 'none' }}>
+        <div className="relative mb-6 w-full" style={{ cursor: 'none' }}>
           <canvas
             ref={canvasRef}
             width={Math.round((window.screen.width || 1920) * (window.devicePixelRatio || 1))}
             height={Math.round((window.screen.height || 1080) * (window.devicePixelRatio || 1))}
-            className="w-full rounded-2xl border border-zinc-800 shadow-2xl"
-            style={{ aspectRatio: `${window.screen.width || 1920} / ${window.screen.height || 1080}` }}
+            className="w-full border border-zinc-800 shadow-2xl"
+            style={{ aspectRatio: `${window.screen.width || 1920} / ${window.screen.height || 1080}`, borderRadius: `${settings.cornerRadius}px` }}
           />
           <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-red-600/90 px-3 py-1.5 text-xs font-mono backdrop-blur-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
@@ -91,7 +91,7 @@ export function VideoPreview(props: VideoPreviewProps) {
           </div>
         </div>
       ) : hasRecorded ? (
-        <div className="mb-8 w-full max-w-2xl">
+        <div className="mb-8 w-full">
           {playbackUrl ? (
             <CanvasPlayback
               playbackUrl={playbackUrl}
@@ -105,8 +105,8 @@ export function VideoPreview(props: VideoPreviewProps) {
             />
           ) : (
             <div
-              className="w-full aspect-video rounded-2xl border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black/60"
-              style={{ background: '#111' }}
+              className="w-full aspect-video border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black/60"
+              style={{ background: '#111', borderRadius: `${settings.cornerRadius}px` }}
             >
               <span className="text-xs text-zinc-500">{fmtMs(recordDuration)} recorded — preparing playback...</span>
             </div>
