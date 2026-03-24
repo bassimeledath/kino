@@ -230,7 +230,7 @@ export function Timeline(props: TimelineProps) {
   return (
     <div
       data-testid="timeline"
-      className="border-t border-zinc-800/60 bg-zinc-900/80 backdrop-blur-xl flex-shrink-0"
+      className="border-t border-white/[0.06] bg-zinc-900/80 backdrop-blur-xl flex-shrink-0"
       style={{ height: '11.5rem' }}
     >
       <div className="px-4 py-2 h-full flex flex-col">

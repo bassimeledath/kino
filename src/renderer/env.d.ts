@@ -37,6 +37,10 @@ interface KinoAPI {
   closeToolbar: () => void
 }
 
-interface Window {
-  kino: KinoAPI
+declare global {
+  interface Window {
+    kino: KinoAPI
+  }
 }
+
+export {}

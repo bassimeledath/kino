@@ -78,7 +78,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   return (
     <div
       data-testid="settings-panel"
-      className={`border-l border-zinc-800/60 bg-zinc-900/80 backdrop-blur-xl flex-shrink-0 transition-all duration-200 ${
+      className={`border-l border-white/[0.06] bg-zinc-900/80 backdrop-blur-xl flex-shrink-0 transition-all duration-200 ${
         settingsOpen ? 'w-[280px] opacity-100 overflow-y-auto' : 'w-0 opacity-0 overflow-hidden pointer-events-none'
       }`}
     >
