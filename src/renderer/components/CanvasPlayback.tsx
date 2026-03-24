@@ -256,7 +256,7 @@ export function CanvasPlayback({
       />
       <canvas
         ref={canvasRef}
-        className="w-full h-full border border-zinc-800 shadow-2xl"
+        className="w-full h-full"
         style={{ borderRadius: `${settings.cornerRadius}px` }}
         onClick={() => onPlayingChange(!isPlaying)}
       />

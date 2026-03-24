@@ -332,7 +332,7 @@ function App() {
 
   return (
     <div className="flex h-screen flex-col bg-zinc-950/90 backdrop-blur-xl text-white select-none">
-      <div className="h-12 flex-shrink-0 bg-zinc-950/80 border-b border-zinc-800/50 [-webkit-app-region:drag]" />
+      <div className="h-12 flex-shrink-0 bg-zinc-950/90 backdrop-blur-xl border-b border-white/[0.06] [-webkit-app-region:drag]" />
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col items-center justify-center bg-zinc-950/90 px-8 relative">
@@ -482,7 +482,7 @@ function App() {
         onUpdateZoomRange={handleUpdateZoomRange}
       />
 
-      <div className="flex items-center justify-between border-t border-zinc-800/60 bg-zinc-950 px-4 py-2">
+      <div className="flex items-center justify-between border-t border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl px-4 py-2">
         <div className="flex items-center gap-4 text-[11px] text-zinc-600">
           {status === 'recording' ? (
             <span className="flex items-center gap-1.5 text-red-400 font-medium">

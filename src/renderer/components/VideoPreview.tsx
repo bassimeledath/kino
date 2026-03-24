@@ -84,7 +84,7 @@ export function VideoPreview(props: VideoPreviewProps) {
             className="w-full border border-zinc-800 shadow-2xl"
             style={{ aspectRatio: `${window.screen.width || 1920} / ${window.screen.height || 1080}`, borderRadius: `${settings.cornerRadius}px` }}
           />
-          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-red-600/90 px-3 py-1.5 text-xs font-mono backdrop-blur-sm">
+          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-red-500/90 px-3 py-1.5 text-xs font-mono backdrop-blur-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
             {fmtMs(recordDuration)}
           </div>
