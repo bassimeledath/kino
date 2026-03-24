@@ -230,7 +230,7 @@ export function Timeline(props: TimelineProps) {
   return (
     <div
       data-testid="timeline"
-      className="border-t border-zinc-800/60 bg-zinc-900/95 flex-shrink-0"
+      className="border-t border-zinc-800/60 bg-zinc-900/80 backdrop-blur-xl flex-shrink-0"
       style={{ height: '11.5rem' }}
     >
       <div className="px-4 py-2 h-full flex flex-col">
@@ -351,13 +351,13 @@ export function Timeline(props: TimelineProps) {
                   <div
                     key={segment.id}
                     className={`absolute inset-y-0 rounded-md transition-colors duration-75 ${
-                      isSelected ? 'ring-1 ring-amber-400/60 ring-inset' : ''
+                      isSelected ? 'ring-1 ring-amber-400/80 ring-inset' : ''
                     }`}
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
                       background: isSelected
-                        ? 'rgba(217, 119, 6, 0.4)'
+                        ? 'rgba(217, 119, 6, 0.5)'
                         : 'rgba(217, 119, 6, 0.25)',
                     }}
                     onClick={(e) => {
@@ -368,19 +368,19 @@ export function Timeline(props: TimelineProps) {
                     {/* Clip label inside the block */}
                     <div className="absolute inset-0 flex items-center px-2.5 pointer-events-none overflow-hidden">
                       <span className="text-[10px] font-medium text-amber-200/60 truncate">
-                        Clip {fmtMs(segDur)} {segment.speed !== 1 ? `${segment.speed}x` : '1x'}
+                        Clip {fmtMs(segDur)}{segment.speed !== 1 ? ` ${segment.speed}x` : ''}
                       </span>
                     </div>
                     {/* Trim handles */}
                     <div
-                      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-l-md hover:bg-amber-400/25"
+                      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-l-md bg-amber-400/15 hover:bg-amber-400/30"
                       onMouseDown={(e) => {
                         e.stopPropagation()
                         setTrimDrag({ segmentId: segment.id, side: 'left' })
                       }}
                     />
                     <div
-                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-r-md hover:bg-amber-400/25"
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize rounded-r-md bg-amber-400/15 hover:bg-amber-400/30"
                       onMouseDown={(e) => {
                         e.stopPropagation()
                         setTrimDrag({ segmentId: segment.id, side: 'right' })
