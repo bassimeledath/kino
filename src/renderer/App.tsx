@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import type { TimelineSegment, ZoomEvent } from '../shared/types'
 import type { RecordingMetadata } from './hooks/useRecording'
+import { FloatingToolbar } from './components/FloatingToolbar'
 import { SettingsPanel } from './components/SettingsPanel'
 import { Timeline } from './components/Timeline'
 import { VideoPreview } from './components/VideoPreview'
@@ -498,4 +499,12 @@ function App() {
   )
 }
 
-export default App
+function Root() {
+  const isToolbar = window.location.hash === '#/toolbar'
+  if (isToolbar) {
+    return <FloatingToolbar />
+  }
+  return <App />
+}
+
+export default Root

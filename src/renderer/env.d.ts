@@ -22,6 +22,10 @@ interface KinoAPI {
   onExportProgress: (cb: (progress: number) => void) => () => void
   onExportDone: (cb: (result: ExportDoneResult) => void) => () => void
   onCursorData: (cb: (frame: CursorFrame) => void) => () => void
+  // Toolbar-specific
+  toolbarStartRecording: () => void
+  toolbarStopRecording: () => void
+  onToolbarTimer: (cb: (elapsedMs: number) => void) => () => void
 }
 
 interface Window {

@@ -46,7 +46,9 @@ function compileClickMonitor(): boolean {
 }
 
 let mainWindow: BrowserWindow | null = null
+let toolbarWindow: BrowserWindow | null = null
 let cursorInterval: ReturnType<typeof setInterval> | null = null
+let toolbarTimerInterval: ReturnType<typeof setInterval> | null = null
 let clickProcess: ReturnType<typeof spawn> | null = null
 let isMouseDown = false
 let recordingStartTime = 0
@@ -54,6 +56,37 @@ const cursorLog: CursorFrame[] = []
 
 function sendRecordingStatus(status: RecordingStatus) {
   mainWindow?.webContents.send(Channels.RECORDING_STATUS, status)
+  toolbarWindow?.webContents.send(Channels.RECORDING_STATUS, status)
+}
+
+function createToolbarWindow(): BrowserWindow {
+  const win = new BrowserWindow({
+    width: 200,
+    height: 56,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: true,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  })
+
+  win.setVisibleOnAllWorkspaces(true)
+
+  if (process.env.NODE_ENV === 'development') {
+    win.loadURL('http://localhost:5173#/toolbar')
+  } else {
+    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/toolbar' })
+  }
+
+  return win
 }
 
 function completeExport(result: ExportDoneResult): ExportDoneResult {
@@ -108,7 +141,8 @@ app.whenReady().then(() => {
     clickMonitorReady = compileClickMonitor()
   }
 
-  mainWindow = createMainWindow()
+  // Phase 1: Launch the floating toolbar instead of the full editor
+  toolbarWindow = createToolbarWindow()
 
   // IPC: List capture sources
   ipcMain.handle(Channels.SOURCES_LIST, async () => {
@@ -319,15 +353,101 @@ app.whenReady().then(() => {
     })
   })
 
+  // IPC: Toolbar requests recording start — kick off cursor/click tracking from toolbar
+  ipcMain.on(Channels.TOOLBAR_START_RECORDING, () => {
+    console.log('[toolbar] start recording')
+    cursorLog.length = 0
+    recordingStartTime = Date.now()
+    isMouseDown = false
+
+    // Resize toolbar to show recording controls
+    toolbarWindow?.setSize(280, 56)
+
+    // Start macOS click monitor
+    if (process.platform === 'darwin' && clickMonitorReady) {
+      clickProcess = spawn(CLICK_MONITOR_BIN, [], { stdio: ['ignore', 'pipe', 'ignore'] })
+      clickProcess.stdout!.on('data', (data: Buffer) => {
+        for (const line of data.toString().split('\n')) {
+          if (line === 'down') isMouseDown = true
+          else if (line === 'up') isMouseDown = false
+        }
+      })
+      clickProcess.on('error', () => { clickProcess = null })
+    }
+
+    // Start cursor tracking at ~60Hz
+    if (cursorInterval) clearInterval(cursorInterval)
+    cursorInterval = setInterval(() => {
+      const pos = screen.getCursorScreenPoint()
+      const frame: CursorFrame = {
+        t: Date.now() - recordingStartTime,
+        x: pos.x,
+        y: pos.y,
+        click: isMouseDown,
+      }
+      cursorLog.push(frame)
+      // Send cursor data to main editor window if it exists
+      mainWindow?.webContents.send(Channels.CURSOR_DATA, frame)
+    }, 16)
+
+    // Send elapsed timer to toolbar at ~4Hz
+    if (toolbarTimerInterval) clearInterval(toolbarTimerInterval)
+    toolbarTimerInterval = setInterval(() => {
+      const elapsed = Date.now() - recordingStartTime
+      toolbarWindow?.webContents.send(Channels.TOOLBAR_RECORDING_TIMER, elapsed)
+    }, 250)
+
+    sendRecordingStatus('recording')
+  })
+
+  // IPC: Toolbar requests recording stop — stop tracking, open editor window
+  ipcMain.on(Channels.TOOLBAR_STOP_RECORDING, () => {
+    console.log('[toolbar] stop recording')
+
+    // Stop cursor tracking
+    if (cursorInterval) {
+      clearInterval(cursorInterval)
+      cursorInterval = null
+    }
+    if (toolbarTimerInterval) {
+      clearInterval(toolbarTimerInterval)
+      toolbarTimerInterval = null
+    }
+    if (clickProcess) {
+      clickProcess.kill()
+      clickProcess = null
+    }
+    isMouseDown = false
+
+    // Save cursor log
+    const benchDir = join(__dirname, '../../benchmarks')
+    mkdirSync(benchDir, { recursive: true })
+    const ts = new Date().toISOString().replace(/[:.]/g, '-')
+    const timestampedPath = join(benchDir, `cursor-log-${ts}.json`)
+    writeFileSync(timestampedPath, JSON.stringify(cursorLog))
+    writeFileSync(join(benchDir, 'cursor-log.json'), JSON.stringify(cursorLog))
+
+    sendRecordingStatus('idle')
+
+    // Phase 3: Close toolbar, open the full editor window
+    if (toolbarWindow && !toolbarWindow.isDestroyed()) {
+      toolbarWindow.close()
+      toolbarWindow = null
+    }
+
+    mainWindow = createMainWindow()
+  })
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createMainWindow()
+      toolbarWindow = createToolbarWindow()
     }
   })
 })
 
 app.on('window-all-closed', () => {
   if (cursorInterval) clearInterval(cursorInterval)
+  if (toolbarTimerInterval) clearInterval(toolbarTimerInterval)
   if (clickProcess) clickProcess.kill()
   app.quit()
 })
