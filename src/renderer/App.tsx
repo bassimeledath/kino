@@ -326,11 +326,11 @@ function App() {
   }, [exportProgress, getChunks, settings.fps, settings.resolution])
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-950 text-white select-none">
+    <div className="flex h-screen flex-col bg-zinc-950/90 backdrop-blur-xl text-white select-none">
       <div className="h-12 flex-shrink-0 bg-zinc-950/80 border-b border-zinc-800/50 [-webkit-app-region:drag]" />
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-1 flex-col items-center justify-center bg-zinc-950 px-8 relative">
+        <div className="flex flex-1 flex-col items-center justify-center bg-zinc-950/90 px-8 relative">
           <VideoPreview
             status={status}
             hasRecorded={hasRecorded}
@@ -352,7 +352,7 @@ function App() {
             {status === 'idle' && !hasRecorded ? (
               <button
                 data-testid="record-btn"
-                className="flex items-center gap-2 rounded-full bg-red-500 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/20 active:scale-[0.97]"
+                className="flex items-center gap-2 rounded-full bg-red-500 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/20 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                 onClick={handleRecord}
               >
                 <div className="w-2 h-2 rounded-full bg-white" />
@@ -362,7 +362,7 @@ function App() {
               <>
                 <button
                   data-testid="play-btn"
-                  className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-600/20 active:scale-[0.97]"
+                  className="flex items-center gap-2 rounded-full bg-zinc-700 px-6 py-2 text-[13px] font-semibold text-zinc-200 transition-all duration-150 hover:bg-zinc-600 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                   onClick={() => setIsPlaying((p) => !p)}
                 >
                   {isPlaying ? (
@@ -384,7 +384,7 @@ function App() {
                 </button>
                 <button
                   data-testid="record-btn"
-                  className="flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-[13px] font-medium text-zinc-400 transition-all duration-150 hover:bg-zinc-700 hover:text-zinc-200 active:scale-[0.97]"
+                  className="flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-[13px] font-medium text-zinc-400 transition-all duration-150 hover:bg-zinc-700 hover:text-zinc-200 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                   onClick={handleRecord}
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
@@ -394,7 +394,7 @@ function App() {
             ) : status === 'recording' ? (
               <button
                 data-testid="stop-btn"
-                className="flex items-center gap-2 rounded-full bg-zinc-700 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-zinc-600 active:scale-[0.97]"
+                className="flex items-center gap-2 rounded-full bg-zinc-700 px-6 py-2 text-[13px] font-semibold text-white transition-all duration-150 hover:bg-zinc-600 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                 onClick={handleStop}
               >
                 <div className="w-2 h-2 rounded-sm bg-white" />
@@ -404,7 +404,7 @@ function App() {
 
             <button
               data-testid="settings"
-              className={`rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-150 active:scale-[0.97] [-webkit-app-region:no-drag] ${
+              className={`rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/15 [-webkit-app-region:no-drag] ${
                 settingsOpen
                   ? 'bg-zinc-600 text-white'
                   : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
@@ -429,7 +429,7 @@ function App() {
               role="switch"
               aria-checked={settings.autoZoom}
               onClick={() => updateSettings({ autoZoom: !settings.autoZoom })}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-white/15 ${
                 settings.autoZoom ? 'bg-red-500' : 'bg-zinc-700'
               }`}
             >
@@ -522,8 +522,8 @@ function App() {
         </div>
         <button
           data-testid="export-btn"
-          disabled={exportProgress !== null}
-          className="rounded-lg bg-blue-600 px-5 py-1.5 text-[11px] font-semibold text-white transition-all duration-150 hover:bg-blue-500 hover:shadow-md hover:shadow-blue-600/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={exportProgress !== null || !hasRecorded}
+          className="rounded-lg bg-zinc-700 px-5 py-1.5 text-[11px] font-semibold text-zinc-200 transition-all duration-150 hover:bg-zinc-600 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleExport}
         >
           {exportProgress !== null ? `${Math.round(exportProgress * 100)}%` : 'Export MP4'}

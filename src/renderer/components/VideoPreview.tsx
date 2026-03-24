@@ -46,17 +46,16 @@ export function VideoPreview(props: VideoPreviewProps) {
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
           <div
             key={countdownValue}
-            className="text-[8rem] font-black text-white leading-none"
-            style={{ animation: 'countdownPop 0.8s ease-out forwards' }}
+            className="text-[3.5rem] font-black text-white leading-none"
+            style={{ animation: 'countdownPop 0.2s ease-out forwards' }}
           >
             {countdownValue}
           </div>
           <style>{`
             @keyframes countdownPop {
-              0%   { transform: scale(1.6); opacity: 0; }
-              30%  { transform: scale(1.0); opacity: 1; }
-              80%  { transform: scale(1.0); opacity: 1; }
-              100% { transform: scale(0.7); opacity: 0; }
+              0%   { transform: scale(1.04); opacity: 0; }
+              50%  { opacity: 1; }
+              100% { transform: scale(1.0); opacity: 0; }
             }
           `}</style>
         </div>

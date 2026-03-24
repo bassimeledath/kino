@@ -10,7 +10,7 @@ interface SettingsPanelProps {
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mb-3 mt-1">
-      <span className="text-[10px] font-semibold text-zinc-500 tracking-widest uppercase">{children}</span>
+      <span className="text-[11px] font-semibold text-zinc-400">{children}</span>
       <div className="flex-1 h-px bg-zinc-800/80" />
     </div>
   )
@@ -23,7 +23,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-white/15 ${
         checked ? 'bg-red-500' : 'bg-zinc-700'
       }`}
     >
@@ -66,7 +66,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="settings-range w-full"
+        className="settings-range w-full focus-visible:ring-2 focus-visible:ring-white/15"
       />
     </div>
   )
@@ -75,20 +75,20 @@ function Slider({
 export function SettingsPanel(props: SettingsPanelProps) {
   const { settingsOpen, settings, updateSettings, onClose } = props
 
-  if (!settingsOpen) return null
-
   return (
     <div
       data-testid="settings-panel"
-      className="w-[280px] border-l border-zinc-800/60 bg-zinc-900/95 overflow-y-auto flex-shrink-0"
+      className={`border-l border-zinc-800/60 bg-zinc-900/80 backdrop-blur-xl flex-shrink-0 transition-all duration-200 ${
+        settingsOpen ? 'w-[280px] opacity-100 overflow-y-auto' : 'w-0 opacity-0 overflow-hidden pointer-events-none'
+      }`}
     >
-      <div className="p-4">
+      <div className="w-[280px] p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[13px] font-semibold text-zinc-200 tracking-tight">Settings</h2>
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-all"
+            className="w-6 h-6 flex items-center justify-center rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15"
           >
             <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -108,7 +108,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 <button
                   key={type}
                   onClick={() => updateSettings({ backgroundType: type })}
-                  className={`flex-1 text-[11px] font-medium py-1.5 rounded-md border transition-all capitalize ${
+                  className={`flex-1 text-[11px] font-medium py-1.5 rounded-md border transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15 capitalize ${
                     settings.backgroundType === type
                       ? 'bg-zinc-700 border-zinc-600 text-white'
                       : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
@@ -183,7 +183,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     }
                     input.click()
                   }}
-                  className="w-full text-[11px] font-medium py-1.5 rounded-md border bg-zinc-800/50 border-zinc-700/50 text-zinc-400 hover:text-zinc-300 hover:border-zinc-600 transition-all"
+                  className="w-full text-[11px] font-medium py-1.5 rounded-md border bg-zinc-800/50 border-zinc-700/50 text-zinc-400 hover:text-zinc-300 hover:border-zinc-600 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15"
                 >
                   {settings.backgroundImageDataUrl ? 'Change Image' : 'Choose Image'}
                 </button>
@@ -366,7 +366,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 <button
                   key={fps}
                   onClick={() => updateSettings({ fps })}
-                  className={`flex-1 text-[11px] font-medium py-1.5 rounded-md border transition-all ${
+                  className={`flex-1 text-[11px] font-medium py-1.5 rounded-md border transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15 ${
                     settings.fps === fps
                       ? 'bg-zinc-700 border-zinc-600 text-white'
                       : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
@@ -385,7 +385,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               onChange={(e) =>
                 updateSettings({ resolution: e.target.value as ProjectSettings['resolution'] })
               }
-              className="w-full rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[11px] text-zinc-300 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-zinc-600 transition-colors"
+              className="w-full rounded-md bg-zinc-800/80 border border-zinc-700/50 text-[11px] text-zinc-300 px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-zinc-600 focus-visible:ring-2 focus-visible:ring-white/15 transition-all duration-150"
             >
               <option value="native">Native</option>
               <option value="4k">4K (3840x2160)</option>

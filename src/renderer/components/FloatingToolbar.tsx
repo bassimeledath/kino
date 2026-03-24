@@ -187,7 +187,7 @@ export function FloatingToolbar() {
                 data-testid="toolbar-stop-btn"
                 onClick={handleStop}
                 disabled={isCountdown || sending}
-                className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 title="Stop recording"
               >
@@ -202,7 +202,7 @@ export function FloatingToolbar() {
               <button
                 data-testid="toolbar-record-btn"
                 onClick={handleRecord}
-                className="rounded-lg p-2 text-red-500 transition-all duration-150 hover:bg-white/10 hover:text-red-400 active:scale-95"
+                className="rounded-lg p-2 text-red-500 transition-all duration-150 hover:bg-white/10 hover:text-red-400 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 title="Start recording"
               >
@@ -217,7 +217,7 @@ export function FloatingToolbar() {
               {/* Settings button */}
               <button
                 data-testid="toolbar-settings-btn"
-                className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-zinc-200 active:scale-95"
+                className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-zinc-200 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 title="Settings"
               >
@@ -230,7 +230,7 @@ export function FloatingToolbar() {
               {/* Close button */}
               <button
                 onClick={handleClose}
-                className="rounded-lg p-2 text-zinc-500 transition-all duration-150 hover:bg-white/10 hover:text-zinc-300 active:scale-95"
+                className="rounded-lg p-2 text-zinc-500 transition-all duration-150 hover:bg-white/10 hover:text-zinc-300 focus-visible:ring-2 focus-visible:ring-white/15 active:scale-95"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 title="Close"
               >

@@ -250,7 +250,7 @@ export function Timeline(props: TimelineProps) {
               onClick={() => {
                 if (visibleSegments.length > 0) onSetPlayheadMs(visibleSegments[0].startTime)
               }}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15"
               title="Skip to start"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
@@ -260,7 +260,7 @@ export function Timeline(props: TimelineProps) {
             </button>
             <button
               onClick={() => onPlayingChange(!isPlaying)}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15"
               title={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? (
@@ -281,7 +281,7 @@ export function Timeline(props: TimelineProps) {
                   onSetPlayheadMs(last.endTime)
                 }
               }}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15"
               title="Skip to end"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
@@ -294,7 +294,7 @@ export function Timeline(props: TimelineProps) {
 
             <button
               onClick={onSplit}
-              className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all border border-zinc-700/50"
+              className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15 border border-zinc-700/50"
               title="Split at playhead (S key)"
             >
               <span className="flex items-center gap-1.5">
@@ -316,7 +316,7 @@ export function Timeline(props: TimelineProps) {
             <button
               onClick={onDeleteSegment}
               disabled={!selectedSegmentId}
-              className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all border border-zinc-700/50 disabled:opacity-30 disabled:pointer-events-none"
+              className="text-[11px] px-2.5 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/15 border border-zinc-700/50 disabled:opacity-30 disabled:pointer-events-none"
               title="Delete selected segment (Delete key)"
             >
               Delete
@@ -350,7 +350,7 @@ export function Timeline(props: TimelineProps) {
                 return (
                   <div
                     key={segment.id}
-                    className={`absolute inset-y-0 rounded-md transition-colors duration-75 ${
+                    className={`absolute inset-y-0 rounded-md transition-all duration-150 ${
                       isSelected ? 'ring-1 ring-amber-400/60 ring-inset' : ''
                     }`}
                     style={{
@@ -424,7 +424,7 @@ export function Timeline(props: TimelineProps) {
               return (
                 <div
                   key={evt.id}
-                  className={`absolute inset-y-0.5 rounded flex items-center px-1.5 overflow-hidden cursor-pointer transition-all duration-75 ${
+                  className={`absolute inset-y-0.5 rounded flex items-center px-1.5 overflow-hidden cursor-pointer transition-all duration-150 ${
                     isSelected ? 'ring-1 ring-inset' : ''
                   }`}
                   style={{
