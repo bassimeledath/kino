@@ -136,6 +136,7 @@ export function FloatingToolbar() {
 
   return (
     <>
+      <style>{`@keyframes rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }`}</style>
       {/* Hidden capture elements — off-screen but still rendered for MediaRecorder */}
       <video
         ref={captureVideoRef}
@@ -156,91 +157,88 @@ export function FloatingToolbar() {
           className="flex h-11 items-center gap-1 rounded-[14px] px-1.5"
           style={{
             background: 'rgba(24, 24, 27, 0.82)',
-            backdropFilter: 'blur(24px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             border: '1px solid rgba(255, 255, 255, 0.06)',
-            boxShadow:
-              '0 0 0 0.5px rgba(0,0,0,0.3), 0 8px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.2)',
+            boxShadow: '0 0 0 0.5px rgba(0,0,0,0.3)',
             WebkitAppRegion: 'drag',
           } as React.CSSProperties}
         >
-          {isBusy ? (
-            <>
-              {/* Pulsing dot + timer */}
-              <span className="flex items-center gap-1.5 px-2 text-[13px] font-medium tabular-nums text-zinc-300"
-                style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'SF Mono, ui-monospace, monospace' }}>
-                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500 animate-pulse" />
-                {isCountdown ? (
-                  <span className="text-red-400">{countdownValue}</span>
-                ) : sending ? (
-                  <span className="text-zinc-500 text-[12px]">Saving...</span>
-                ) : (
-                  fmtTimer(recordDuration)
-                )}
-              </span>
+          {/* Busy state (countdown / recording / saving) */}
+          <div
+            className="flex items-center gap-1 transition-all duration-200"
+            style={{
+              opacity: isBusy ? 1 : 0,
+              transform: isBusy ? 'scale(1)' : 'scale(0.95)',
+              position: isBusy ? 'relative' : 'absolute',
+              pointerEvents: isBusy ? 'auto' : 'none',
+            }}
+          >
+            {/* Recording dot + timer */}
+            <span className="flex items-center gap-1.5 px-2 text-[13px] font-normal tabular-nums text-zinc-300"
+              style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'SF Mono, ui-monospace, monospace' }}>
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-red-500" style={{ animation: 'rec-pulse 3s ease-in-out infinite' }} />
+              {isCountdown ? (
+                <span className="text-red-400">{countdownValue}</span>
+              ) : sending ? (
+                <span className="text-zinc-500 text-[12px]">Saving...</span>
+              ) : (
+                fmtTimer(recordDuration)
+              )}
+            </span>
 
-              {/* Separator */}
-              <div className="h-5 w-px bg-white/10" />
+            {/* Separator */}
+            <div className="h-5 w-px bg-white/[0.06]" />
 
-              {/* Stop button */}
-              <button
-                data-testid="toolbar-stop-btn"
-                onClick={handleStop}
-                disabled={isCountdown || sending}
-                className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                title="Stop recording"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                  <rect x="3" y="3" width="10" height="10" rx="2" />
-                </svg>
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Record button */}
-              <button
-                data-testid="toolbar-record-btn"
-                onClick={handleRecord}
-                className="rounded-lg p-2 text-red-500 transition-all duration-150 hover:bg-white/10 hover:text-red-400 active:scale-95"
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                title="Start recording"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <circle cx="8" cy="8" r="6" />
-                </svg>
-              </button>
+            {/* Stop button */}
+            <button
+              data-testid="toolbar-stop-btn"
+              onClick={handleStop}
+              disabled={isCountdown || sending}
+              className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              title="Stop recording"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="3" y="3" width="10" height="10" rx="2" />
+              </svg>
+            </button>
+          </div>
 
-              {/* Separator */}
-              <div className="h-5 w-px bg-white/10" />
+          {/* Idle state */}
+          <div
+            className="flex items-center gap-1 transition-all duration-200"
+            style={{
+              opacity: isBusy ? 0 : 1,
+              transform: isBusy ? 'scale(0.95)' : 'scale(1)',
+              position: isBusy ? 'absolute' : 'relative',
+              pointerEvents: isBusy ? 'none' : 'auto',
+            }}
+          >
+            {/* Record button */}
+            <button
+              data-testid="toolbar-record-btn"
+              onClick={handleRecord}
+              className="rounded-lg p-2 text-red-500 transition-all duration-150 hover:bg-white/10 hover:text-red-400 active:scale-95"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              title="Start recording"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <circle cx="8" cy="8" r="6" />
+              </svg>
+            </button>
 
-              {/* Settings button */}
-              <button
-                data-testid="toolbar-settings-btn"
-                className="rounded-lg p-2 text-zinc-400 transition-all duration-150 hover:bg-white/10 hover:text-zinc-200 active:scale-95"
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                title="Settings"
-              >
-                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-              </button>
-
-              {/* Close button */}
-              <button
-                onClick={handleClose}
-                className="rounded-lg p-2 text-zinc-500 transition-all duration-150 hover:bg-white/10 hover:text-zinc-300 active:scale-95"
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                title="Close"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <line x1="2" y1="2" x2="10" y2="10" />
-                  <line x1="10" y1="2" x2="2" y2="10" />
-                </svg>
-              </button>
-            </>
-          )}
+            {/* Close button */}
+            <button
+              onClick={handleClose}
+              className="rounded-lg p-2 text-zinc-500 transition-all duration-150 hover:bg-white/10 hover:text-zinc-300 active:scale-95"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              title="Close"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="2" y1="2" x2="10" y2="10" />
+                <line x1="10" y1="2" x2="2" y2="10" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </>

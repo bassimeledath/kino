@@ -53,15 +53,13 @@ export function useRecording(input: UseRecordingInput) {
 
   const startRecording = useCallback(async () => {
     countdownAbortRef.current = false
-    setStatus('recording')
-    window.kino.startRecording({})
+    setStatus('countdown')
 
     chunksRef.current = []
     zoomEventsRef.current = []
     setRecordDuration(0)
-    startMsRef.current = Date.now()
 
-    console.log('[recording] started capture...')
+    console.log('[recording] starting countdown...')
 
     for (let i = 3; i >= 1; i -= 1) {
       if (countdownAbortRef.current) return false
@@ -146,6 +144,8 @@ export function useRecording(input: UseRecordingInput) {
       recorderRef.current = recorder
       recorder.start(200)
 
+      setStatus('recording')
+      window.kino.startRecording({})
       startMsRef.current = Date.now()
       clearDurationTimer()
       durationTimerRef.current = setInterval(() => {

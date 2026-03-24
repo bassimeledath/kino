@@ -55,6 +55,11 @@ function App() {
 
   const effectiveDuration = durationOverride ?? recordDuration
 
+  // Set body background for editor (toolbar keeps transparent)
+  useEffect(() => {
+    document.body.style.background = '#0a0a0a'
+  }, [])
+
   // Load toolbar recording data on mount (when editor opens after toolbar recording)
   useEffect(() => {
     if (typeof window.kino?.getToolbarRecording !== 'function') return

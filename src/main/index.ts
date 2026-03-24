@@ -8,7 +8,6 @@ import type {
   CursorFrame,
   ExportDoneResult,
   ExportStartConfig,
-  RecordingStatus,
 } from '../shared/types'
 
 // Allow CDP WebSocket connections from any origin (required for benchmark tooling)
@@ -61,11 +60,6 @@ let toolbarRecordingData: {
   zoomEvents: unknown[]
 } | null = null
 
-function sendRecordingStatus(status: RecordingStatus) {
-  mainWindow?.webContents.send(Channels.RECORDING_STATUS, status)
-  toolbarWindow?.webContents.send(Channels.RECORDING_STATUS, status)
-}
-
 function createToolbarWindow(): BrowserWindow {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth } = primaryDisplay.workAreaSize
@@ -82,7 +76,7 @@ function createToolbarWindow(): BrowserWindow {
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
-    hasShadow: false,
+    hasShadow: true,
     vibrancy: 'under-window',
     visualEffectState: 'active',
     roundedCorners: true,
@@ -247,14 +241,12 @@ app.whenReady().then(() => {
       toolbarWindow?.webContents.send(Channels.CURSOR_DATA, frame)
     }, 16) // ~60Hz
 
-    sendRecordingStatus('recording')
   })
 
   // IPC: Recording stop — stop cursor tracking and click monitor
   ipcMain.on(Channels.RECORDING_STOP, () => {
     stopCursorTracking()
     saveCursorLog()
-    sendRecordingStatus('idle')
   })
 
   // IPC: Toolbar sends completed recording data — save it, close toolbar, open editor
